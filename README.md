@@ -15,7 +15,7 @@ SISA-APP-01/
 │   └── logo.png               # Logo extraído del prototipo HTML
 ├── data/                      # Salida generada (ignorada por git)
 │   ├── actas_maestro.xlsx     #   Excel maestro, una fila por acta   (paso 4)
-│   └── pdfs/                  #   PDF de cada acta                   (paso 3)
+│   └── pdfs/                  #   PDF de cada acta
 └── acta_app/
     ├── config.py              # Constantes: metadatos del formato, opciones, colores, rutas
     ├── models.py              # Dataclasses Acta/Articulo + conversión a fila de Excel
@@ -24,8 +24,9 @@ SISA-APP-01/
     │   ├── styles.py          # CSS que imita el prototipo
     │   ├── components.py      # Encabezado, tarjetas, listas dinámicas, tabla, firmas
     │   └── form.py            # Formulario completo -> devuelve un Acta
-    ├── pdf/                   # Generación del PDF                     (paso 3)
+    ├── pdf/generator.py       # PDF con el diseño del formato físico (ReportLab)
     └── storage/               # Guardado en el Excel maestro          (paso 4)
+tests/                         # Pruebas de validación, fila de Excel y PDF (pytest)
 ```
 
 El formulario (`ui/`) solo produce un objeto `Acta`; la validación, el PDF y el Excel trabajan
@@ -37,4 +38,11 @@ sobre ese objeto sin depender de Streamlit.
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 streamlit run app.py
+```
+
+## Pruebas
+
+```bash
+pip install -r requirements-dev.txt
+pytest
 ```

@@ -4,6 +4,7 @@ import streamlit as st
 
 from acta_app import config
 from acta_app.models import Acta
+from acta_app.pdf import generar_pdf, nombre_archivo_pdf
 from acta_app.ui.components import encabezado
 from acta_app.ui.form import formulario_acta
 from acta_app.ui.styles import aplicar_estilos
@@ -21,6 +22,23 @@ aplicar_estilos()
 def dialogo_fila(acta: Acta) -> None:
     fila = acta.a_fila()
     st.code("\n".join(f"{k}: {v or '—'}" for k, v in fila.items()), language=None, wrap_lines=True)
+
+
+@st.dialog("Acta guardada correctamente")
+def dialogo_guardado(acta: Acta, pdf: bytes, nombre_pdf: str) -> None:
+    st.write(
+        f"El acta N.° {acta.numero} se guardó y se generó el PDF con el mismo formato "
+        "del acta física."
+    )
+    st.download_button(
+        "Descargar PDF",
+        data=pdf,
+        file_name=nombre_pdf,
+        mime="application/pdf",
+        on_click="ignore",
+        type="primary",
+        width="stretch",
+    )
 
 
 encabezado()
@@ -49,10 +67,10 @@ if guardar:
         banner.warning(mensaje, icon="⚠️")
         st.warning(mensaje, icon="⚠️")
     else:
-        # Paso siguiente: generar el PDF y agregar la fila al Excel maestro.
-        banner.success(f"Acta N.° {acta.numero} validada correctamente.", icon="✅")
-        st.success(
-            "Formulario completo y válido. La generación del PDF y el guardado en el Excel "
-            "maestro se conectan en el siguiente paso.",
-            icon="✅",
-        )
+        # TODO (paso 4): agregar la fila al Excel maestro.
+        pdf = generar_pdf(acta)
+        nombre_pdf = nombre_archivo_pdf(acta)
+        config.PDF_DIR.mkdir(parents=True, exist_ok=True)
+        (config.PDF_DIR / nombre_pdf).write_bytes(pdf)
+        banner.success(f"Acta N.° {acta.numero} guardada correctamente.", icon="✅")
+        dialogo_guardado(acta, pdf, nombre_pdf)
