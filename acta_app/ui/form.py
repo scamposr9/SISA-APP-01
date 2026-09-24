@@ -92,18 +92,17 @@ def formulario_acta() -> Acta:
     # ---------- Registro de horas ----------
     with seccion("horas", "Registro de horas", obligatorio=False):
         c1, c2 = st.columns(2)
-        acta.hora_inicio_traslado = c1.time_input(
-            etiqueta("Hora de inicio de traslado"), value=None, step=PASO_MINUTOS, key=k("hora_inicio_traslado")
-        )
-        acta.hora_fin_traslado = c2.time_input(
-            etiqueta("Hora de término de traslado"), value=None, step=PASO_MINUTOS, key=k("hora_fin_traslado")
-        )
-        c1, c2 = st.columns(2)
         acta.hora_inicio_trabajo = c1.time_input(
-            etiqueta("Hora de inicio de trabajo"), value=None, step=PASO_MINUTOS, key=k("hora_inicio_trabajo")
+            etiqueta("Hora de inicio de trabajo"),
+            value=None,
+            step=PASO_MINUTOS,
+            key=k("hora_inicio_trabajo"),
         )
         acta.hora_fin_trabajo = c2.time_input(
-            etiqueta("Hora de término de trabajo"), value=None, step=PASO_MINUTOS, key=k("hora_fin_trabajo")
+            etiqueta("Hora de término de trabajo"),
+            value=None,
+            step=PASO_MINUTOS,
+            key=k("hora_fin_trabajo"),
         )
 
     # ---------- Acciones realizadas ----------

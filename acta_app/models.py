@@ -39,8 +39,6 @@ class Acta:
 
     antecedentes: list[str] = field(default_factory=list)
 
-    hora_inicio_traslado: time | None = None
-    hora_fin_traslado: time | None = None
     hora_inicio_trabajo: time | None = None
     hora_fin_trabajo: time | None = None
 
@@ -72,37 +70,6 @@ class Acta:
     def articulos_usados(self) -> list[Articulo]:
         return [a for a in self.articulos if not a.esta_vacio]
 
-    def a_fila(self) -> dict[str, str]:
-        """Convierte el acta en una fila (columna -> valor) para el Excel maestro."""
-        return {
-            "N° de Acta": self.numero,
-            "Fecha": formatear_fecha(self.fecha),
-            "Cliente": self.cliente,
-            "Ubicación": self.ubicacion,
-            "Equipo": self.equipo,
-            "Marca": self.marca,
-            "Modelo": self.modelo,
-            "N° Serie": self.numero_serie,
-            "Tipo de Servicio": self.tipo_servicio_texto,
-            "Antecedentes Iniciales": unir_puntos(self.antecedentes),
-            "Hora Inicio Traslado": formatear_hora(self.hora_inicio_traslado),
-            "Hora Fin Traslado": formatear_hora(self.hora_fin_traslado),
-            "Hora Inicio Trabajo": formatear_hora(self.hora_inicio_trabajo),
-            "Hora Fin Trabajo": formatear_hora(self.hora_fin_trabajo),
-            "Acciones Realizadas": unir_puntos(self.acciones),
-            "Detalle del Diagnóstico": unir_puntos(self.diagnostico),
-            "Estado Final del Servicio": self.estado_final or "",
-            "Artículos Empleados": " | ".join(
-                f"{a.codigo} - {a.descripcion} (x{a.cantidad})" for a in self.articulos_usados
-            ),
-            "Observaciones": unir_puntos(self.observaciones),
-            "Nombre Cliente": self.nombre_cliente,
-            "Firma Cliente": "Firmado" if self.firma_cliente_png else "Pendiente",
-            "Nombre Representante Sistemas Analíticos": self.nombre_representante,
-            "Firma Sistemas Analíticos": "Firmado" if self.firma_representante_png else "Pendiente",
-            "Fecha de registro": (self.fecha_registro or ahora()).strftime("%d/%m/%Y %I:%M:%S %p"),
-        }
-
 
 def ahora() -> datetime:
     """Fecha y hora actuales en hora de Perú (sin zona, lista para Excel)."""
@@ -120,7 +87,3 @@ def formatear_fecha(valor: date | None) -> str:
 def formatear_hora(valor: time | None) -> str:
     """Formato de 12 horas usado en el prototipo: '08:30 AM'."""
     return valor.strftime("%I:%M %p") if valor else ""
-
-
-def unir_puntos(puntos: list[str]) -> str:
-    return " | ".join(f"{i}. {p}" for i, p in enumerate(puntos, start=1))

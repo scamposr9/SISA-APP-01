@@ -26,7 +26,9 @@ SISA-APP-01/
     │   └── form.py            # Formulario completo -> devuelve un Acta
     ├── pdf/generator.py       # PDF con el diseño del formato físico (ReportLab)
     └── storage/
-        ├── base.py            # Contrato RepositorioActas + columnas del Excel
+        ├── base.py            # Contrato RepositorioActas
+        ├── esquema.py         # Columnas del Excel (campos y grupos de ítems)
+        ├── excel_formato.py   # Leer/escribir el libro (reutilizable para SharePoint)
         └── excel_local.py     # Excel maestro en disco (hoy); SharePoint irá a su lado
 tests/                         # Pruebas de validación, fila de Excel y PDF (pytest)
 ```
@@ -36,15 +38,19 @@ sobre ese objeto sin depender de Streamlit.
 
 ## Excel maestro
 
-- Hoja **Actas**: una fila por acta, mismas columnas que el prototipo + "Archivo PDF".
-  "Fecha" y "Fecha de registro" son fechas reales de Excel (hora de Perú).
+- Hoja **Actas**: una fila por acta.
+  - Los apartados con varios ítems (Antecedentes, Acciones, Diagnóstico, Artículos,
+    Observaciones) tienen **una columna por ítem** ("Antecedente 1", "Antecedente 2"…)
+    bajo un encabezado combinado ("Antecedentes Iniciales"). Cada grupo tiene tantas
+    columnas como el acta con más ítems; se amplía solo al guardar.
+  - "Fecha", horas y "Fecha de registro" son fechas/horas reales de Excel (hora de Perú).
+  - "Archivo PDF" es un enlace al PDF del acta.
 - Hoja **Artículos**: una fila por artículo empleado, enlazada por "N° de Acta".
-- Ambas son Tablas de Excel (filtros y estilo), requisito para escribir en ellas desde
-  SharePoint/Microsoft Graph más adelante.
 - No se permite guardar dos actas con el mismo N.°.
+- La estructura de columnas está en `acta_app/storage/esquema.py`.
 
-> En Streamlit Community Cloud el disco no es permanente: descarga el Excel desde
-> "Base de datos de actas" al final de la app. La persistencia real llegará con SharePoint.
+> En Streamlit Community Cloud el disco no es permanente: descarga "Excel + PDFs (ZIP)"
+> desde "Base de datos de actas". La persistencia real llegará con SharePoint.
 
 ## Ejecutar
 

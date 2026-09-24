@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 
 # Versión visible al pie de la app: permite confirmar qué código está desplegado.
 # Actualizarla en cada cambio que se suba.
-APP_VERSION = "0.5 · 24/09/2026"
+APP_VERSION = "0.6 · 24/09/2026"
 
 # El servidor (p. ej. Streamlit Cloud) corre en UTC; fechas y horas se toman en hora de Perú.
 ZONA_HORARIA = ZoneInfo("America/Lima")

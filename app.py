@@ -3,10 +3,16 @@
 import streamlit as st
 
 from acta_app import config
-from acta_app.models import Acta
-from acta_app.models import ahora
+from acta_app.models import Acta, ahora
 from acta_app.pdf import generar_pdf, nombre_archivo_pdf
-from acta_app.storage import ActaDuplicadaError, AlmacenamientoError, obtener_repositorio
+from acta_app.storage import (
+    ActaDuplicadaError,
+    AlmacenamientoError,
+    fila_plana,
+    formatear_valor,
+    obtener_repositorio,
+    registro_desde_acta,
+)
 from acta_app.ui.components import encabezado
 from acta_app.ui.form import formulario_acta, limpiar_formulario
 from acta_app.ui.styles import aplicar_estilos
@@ -22,8 +28,10 @@ aplicar_estilos()
 
 @st.dialog("Vista previa de la fila (Excel)", width="large")
 def dialogo_fila(acta: Acta) -> None:
-    fila = acta.a_fila()
-    st.code("\n".join(f"{k}: {v or '—'}" for k, v in fila.items()), language=None, wrap_lines=True)
+    # Mismas columnas que tendrá la fila en el Excel maestro (un ítem por columna).
+    fila = fila_plana(registro_desde_acta(acta, archivo_pdf="(se asigna al guardar)"))
+    texto = "\n".join(f"{k}: {formatear_valor(v) or '—'}" for k, v in fila.items())
+    st.code(texto, language=None, wrap_lines=True)
 
 
 @st.dialog("Acta guardada correctamente")
@@ -50,7 +58,7 @@ def dialogo_guardado(acta: Acta, pdf: bytes, nombre_pdf: str, total_actas: int) 
 
 
 def seccion_base_de_datos() -> None:
-    """Descarga del Excel maestro (en la nube, el disco del servidor no es permanente)."""
+    """Descargas del Excel maestro y los PDFs (en la nube el disco no es permanente)."""
     repo = obtener_repositorio()
     excel = repo.excel_bytes()
     total = 0 if excel is None else len(repo.leer_actas())
@@ -66,6 +74,19 @@ def seccion_base_de_datos() -> None:
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             on_click="ignore",
             width="stretch",
+        )
+        st.download_button(
+            "Descargar Excel + PDFs (ZIP)",
+            data=repo.exportar_zip,  # se arma solo al pulsar el botón
+            file_name=f"actas_{ahora():%Y%m%d_%H%M}.zip",
+            mime="application/zip",
+            on_click="ignore",
+            width="stretch",
+        )
+        st.caption(
+            "En la columna «Archivo PDF» cada nombre es un enlace al PDF. Los enlaces funcionan "
+            "al descomprimir el ZIP (Excel y carpeta «pdfs» juntos). Con SharePoint, abrirán el "
+            "PDF directamente en la biblioteca."
         )
 
 

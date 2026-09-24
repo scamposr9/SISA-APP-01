@@ -20,8 +20,6 @@ def validar_acta(acta: Acta) -> list[str]:
         (acta.marca, "Marca"),
         (acta.modelo, "Modelo"),
         (acta.numero_serie, "N.° Serie"),
-        (acta.hora_inicio_traslado, "Hora inicio de traslado"),
-        (acta.hora_fin_traslado, "Hora término de traslado"),
         (acta.hora_inicio_trabajo, "Hora inicio de trabajo"),
         (acta.hora_fin_trabajo, "Hora término de trabajo"),
     ]

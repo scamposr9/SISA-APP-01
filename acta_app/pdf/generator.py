@@ -276,17 +276,11 @@ def _lista(lz: _Lienzo, titulo: str, puntos: list[str]) -> None:
 
 
 def _horas(lz: _Lienzo, acta: Acta) -> None:
-    lz.asegurar_espacio(14)
+    lz.asegurar_espacio(8)
     lz.fuente(REGULAR, 9, GRIS_ETIQUETA)
-    filas = [
-        (("Inicio traslado", acta.hora_inicio_traslado), ("Fin traslado", acta.hora_fin_traslado)),
-        (("Inicio trabajo", acta.hora_inicio_trabajo), ("Fin trabajo", acta.hora_fin_trabajo)),
-    ]
-    for (et_izq, h_izq), (et_der, h_der) in filas:
-        lz.texto(MARGIN_X, lz.y, f"{et_izq}: {formatear_hora(h_izq) or '—'}")
-        lz.texto(MARGIN_X + 95, lz.y, f"{et_der}: {formatear_hora(h_der) or '—'}")
-        lz.y += 6
-    lz.y += 3
+    lz.texto(MARGIN_X, lz.y, f"Inicio trabajo: {formatear_hora(acta.hora_inicio_trabajo) or '—'}")
+    lz.texto(MARGIN_X + 95, lz.y, f"Fin trabajo: {formatear_hora(acta.hora_fin_trabajo) or '—'}")
+    lz.y += 9
 
 
 def _articulos(lz: _Lienzo, acta: Acta) -> None:

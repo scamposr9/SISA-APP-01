@@ -28,8 +28,6 @@ def acta_completa() -> Acta:
         numero_serie="SN123",
         tipo_servicio="Mant. Preventivo",
         antecedentes=["Ruido en bomba"],
-        hora_inicio_traslado=time(8, 0),
-        hora_fin_traslado=time(8, 45),
         hora_inicio_trabajo=time(9, 0),
         hora_fin_trabajo=time(13, 30),
         acciones=["Se revisó la bomba"],

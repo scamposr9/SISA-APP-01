@@ -9,18 +9,6 @@ import pandas as pd
 
 from acta_app.models import Acta
 
-# ---------- Estructura del Excel maestro ----------
-HOJA_ACTAS = "Actas"
-HOJA_ARTICULOS = "Artículos"
-TABLA_ACTAS = "TablaActas"
-TABLA_ARTICULOS = "TablaArticulos"
-
-# Mismas columnas que la fila del prototipo HTML (Acta.a_fila) + el nombre del PDF.
-COLUMNAS_ACTAS = list(Acta().a_fila().keys()) + ["Archivo PDF"]
-
-# Detalle normalizado: una fila por artículo, enlazada al acta por su número.
-COLUMNAS_ARTICULOS = ["N° de Acta", "Fecha", "Cliente", "Código", "Descripción", "Cantidad"]
-
 
 class ActaDuplicadaError(Exception):
     """Ya existe un acta registrada con el mismo número."""
@@ -48,6 +36,10 @@ class RepositorioActas(Protocol):
 
     def excel_bytes(self) -> bytes | None:
         """Contenido actual del Excel maestro, para descargarlo desde la app."""
+        ...
+
+    def exportar_zip(self) -> bytes | None:
+        """Excel maestro + PDFs en un ZIP (con los enlaces del Excel funcionando)."""
         ...
 
 
