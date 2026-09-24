@@ -34,3 +34,24 @@ def test_muchos_articulos_generan_varias_paginas(acta_completa):
 def test_nombre_de_archivo_seguro(acta_completa):
     acta_completa.numero = "2026/00051 ñ"
     assert nombre_archivo_pdf(acta_completa) == "Acta_2026_00051__.pdf"
+
+
+def test_palabras_largas_sin_espacios_no_invaden_otras_columnas(acta_completa):
+    import pymupdf
+
+    from acta_app.pdf.generator import CONTENT_W, MARGIN_X
+
+    acta_completa.articulos = [
+        Articulo("X" * 40, "X" * 120, 3),
+        Articulo("CODIGO-1", "Descripción normal con espacios " * 6, 4),
+    ]
+    acta_completa.observaciones = ["Y" * 200]
+    pdf = generar_pdf(acta_completa)
+
+    limite_derecho = (MARGIN_X + CONTENT_W) * 72 / 25.4
+    col_codigo_fin = (MARGIN_X + 38) * 72 / 25.4
+    for pagina in pymupdf.open(stream=pdf, filetype="pdf"):
+        for x0, _, x1, _, palabra, *_ in pagina.get_text("words"):
+            assert x1 <= limite_derecho + 0.5, palabra
+            if palabra.startswith("XXXX") and x0 < col_codigo_fin:
+                assert x1 <= col_codigo_fin, "el código invade la columna Descripción"

@@ -80,8 +80,28 @@ class _Lienzo:
         self.texto(x, y, s)
 
     def partir(self, s: str, ancho_mm: float) -> list[str]:
-        """Divide `s` en líneas que caben en `ancho_mm` con la fuente actual."""
-        return simpleSplit(s, self.c._fontname, self.c._fontsize, ancho_mm * mm) or [""]
+        """Divide `s` en líneas que caben en `ancho_mm` con la fuente actual.
+
+        Corta por palabras y respeta los saltos de línea escritos por el usuario; una
+        palabra más ancha que la columna (p. ej. un código largo sin espacios) se parte
+        por caracteres para que nunca invada la columna vecina.
+        """
+        fuente, tamano, ancho = self.c._fontname, self.c._fontsize, ancho_mm * mm
+        lineas: list[str] = []
+        for parrafo in s.split("\n"):
+            for linea in simpleSplit(parrafo, fuente, tamano, ancho) or [""]:
+                if stringWidth(linea, fuente, tamano) <= ancho:
+                    lineas.append(linea)
+                    continue
+                actual = ""
+                for ch in linea:
+                    if actual and stringWidth(actual + ch, fuente, tamano) > ancho:
+                        lineas.append(actual)
+                        actual = ch.lstrip()
+                    else:
+                        actual += ch
+                lineas.append(actual)
+        return lineas or [""]
 
     # --- formas ---
     def linea(self, x1: float, y1: float, x2: float, y2: float, color=LINE) -> None:
