@@ -140,6 +140,6 @@ if guardar:
 
 seccion_base_de_datos()
 st.markdown(
-    f'<div class="app-version">{config.SITIO_WEB} · versión {config.APP_VERSION}</div>',
+    f'<div class="app-version">{config.SITIO_WEB} · versión {config.version_desplegada()}</div>',
     unsafe_allow_html=True,
 )

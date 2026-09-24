@@ -13,16 +13,19 @@ SISA-APP-01/
 ├── .streamlit/config.toml     # Tema (colores del prototipo)
 ├── assets/
 │   └── logo.png               # Logo extraído del prototipo HTML
+├── catalogos/                 # Inventario de equipos y clientes para el autocompletado
 ├── data/                      # Salida generada (ignorada por git)
 │   ├── actas_maestro.xlsx     #   Excel maestro: hojas "Actas" y "Artículos"
 │   └── pdfs/                  #   PDF de cada acta
 └── acta_app/
-    ├── config.py              # Constantes: metadatos del formato, opciones, colores, rutas
+    ├── config.py              # Constantes, rutas y versión desplegada (commit de git)
+    ├── catalogo.py            # Autocompletado: opciones filtradas y campos determinados
     ├── models.py              # Dataclasses Acta/Articulo + conversión a fila de Excel
     ├── validation.py          # Reglas de campos obligatorios
     ├── ui/
     │   ├── styles.py          # CSS que imita el prototipo
     │   ├── components.py      # Encabezado, tarjetas, listas dinámicas, tabla, firmas
+    │   ├── catalogo_ui.py     # Carga del catálogo con caché
     │   └── form.py            # Formulario completo -> devuelve un Acta
     ├── pdf/generator.py       # PDF con el diseño del formato físico (ReportLab)
     └── storage/

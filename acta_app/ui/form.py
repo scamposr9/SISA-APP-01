@@ -3,7 +3,9 @@
 import streamlit as st
 
 from acta_app import config
+from acta_app.catalogo import limpiar
 from acta_app.models import Acta, hoy
+from acta_app.ui.catalogo_ui import cargar_catalogo
 from acta_app.ui.components import (
     etiqueta,
     firma,
@@ -35,6 +37,36 @@ def limpiar_formulario() -> None:
     st.session_state[FORM_ID] = st.session_state.get(FORM_ID, 0) + 1
 
 
+# ---------- Autocompletado ----------
+CAMPOS_CATALOGO = ["cliente", "ubicacion", "equipo", "marca", "modelo", "serie"]
+
+
+def _seleccion() -> dict[str, str]:
+    return {c: st.session_state.get(k(c)) or "" for c in CAMPOS_CATALOGO}
+
+
+def _autocompletar() -> None:
+    """Al elegir un valor, completa los campos vacíos que quedan determinados
+    (p. ej. la serie define equipo, marca y modelo; el cliente, su única ubicación)."""
+    for campo, valor in cargar_catalogo().autocompletar(_seleccion()).items():
+        st.session_state[k(campo)] = valor
+
+
+def _campo_catalogo(contenedor, texto: str, campo: str) -> str:
+    """Desplegable con búsqueda: al escribir 'Re' sugiere 'Hospital Rebagliati', etc.
+    Acepta valores nuevos que no estén en el catálogo."""
+    valor = contenedor.selectbox(
+        etiqueta(texto),
+        cargar_catalogo().opciones(campo, _seleccion()),
+        index=None,
+        key=k(campo),
+        placeholder="Escribe para buscar o agregar…",
+        accept_new_options=True,
+        on_change=_autocompletar,
+    )
+    return limpiar(valor)
+
+
 def _limpiar_otro() -> None:
     if st.session_state.get(k("tipo_servicio")) != config.TIPO_SERVICIO_OTRO:
         st.session_state[k("tipo_servicio_otro")] = ""
@@ -54,14 +86,14 @@ def formulario_acta() -> Acta:
     with seccion("datos", "Datos generales", obligatorio=False):
         c1, c2 = st.columns(2)
         acta.fecha = c1.date_input(etiqueta("Fecha"), value=hoy(), format="DD/MM/YYYY", key=k("fecha"))
-        acta.ubicacion = c2.text_input(etiqueta("Ubicación"), key=k("ubicacion")).strip()
+        acta.ubicacion = _campo_catalogo(c2, "Ubicación", "ubicacion")
         c1, c2 = st.columns(2)
-        acta.cliente = c1.text_input(etiqueta("Cliente"), key=k("cliente")).strip()
-        acta.equipo = c2.text_input(etiqueta("Equipo"), key=k("equipo")).strip()
+        acta.cliente = _campo_catalogo(c1, "Cliente", "cliente")
+        acta.equipo = _campo_catalogo(c2, "Equipo", "equipo")
         c1, c2 = st.columns(2)
-        acta.marca = c1.text_input(etiqueta("Marca"), key=k("marca")).strip()
-        acta.modelo = c2.text_input(etiqueta("Modelo"), key=k("modelo")).strip()
-        acta.numero_serie = st.text_input(etiqueta("N.° Serie"), key=k("numero_serie")).strip()
+        acta.marca = _campo_catalogo(c1, "Marca", "marca")
+        acta.modelo = _campo_catalogo(c2, "Modelo", "modelo")
+        acta.numero_serie = _campo_catalogo(st, "N.° Serie", "serie")
 
     # ---------- Tipo de servicio ----------
     with seccion("tipo_servicio", "Tipo de servicio"):
