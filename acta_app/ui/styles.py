@@ -45,10 +45,10 @@ _CSS = f"""
   .acta-number-label {{
     color: {RED}; font-weight: 700; font-size: 20px; text-align: right; padding-top: 6px;
   }}
-  .st-key-acta_numero [data-testid="stTextInputRootElement"] {{
+  [class*="_acta_numero"] [data-testid="stTextInputRootElement"] {{
     border: none; border-bottom: 2px solid {RED}; border-radius: 0; background: transparent;
   }}
-  .st-key-acta_numero input {{
+  [class*="_acta_numero"] input {{
     color: {RED}; font-weight: 700; font-size: 20px; text-align: center;
   }}
 
@@ -76,7 +76,7 @@ _CSS = f"""
 
   /* ---------- Firmas ---------- */
   .sign-label {{ text-align: center; font-size: 13px; font-weight: 600; margin-top: 4px; }}
-  [class*="st-key-borrar_firma"] button {{ color: {NAVY}; text-decoration: underline; font-size: 12px; }}
+  [class*="st-key-borrar_"] button {{ color: {NAVY}; text-decoration: underline; font-size: 12px; }}
 
   .app-version {{ text-align: center; font-size: 11px; color: #8A94A6; margin-top: 10px; }}
 

@@ -4,14 +4,13 @@ from __future__ import annotations
 
 import base64
 from contextlib import contextmanager
-from datetime import date
 
 import pandas as pd
 import streamlit as st
 from streamlit_drawable_canvas import st_canvas
 
 from acta_app import config
-from acta_app.models import Articulo
+from acta_app.models import Articulo, hoy
 
 REQ = '<span class="req-star">*</span>'
 
@@ -23,7 +22,7 @@ def _logo_base64() -> str:
 
 
 def encabezado() -> None:
-    hoy = date.today().strftime("%d/%m/%Y")
+    hoy_texto = hoy().strftime("%d/%m/%Y")
     st.markdown(
         f"""
         <div class="letterhead">
@@ -36,7 +35,7 @@ def encabezado() -> None:
               <div>{config.CODIGO_FORMATO}</div>
               <div>{config.NOMBRE_FORMATO}</div>
               <div>{config.EDICION}</div>
-              <div>{hoy}</div>
+              <div>{hoy_texto}</div>
             </div>
           </div>
         </div>
@@ -105,7 +104,7 @@ def lista_dinamica(clave: str, placeholder: str) -> list[str]:
 COL_CODIGO, COL_DESCRIPCION, COL_CANTIDAD = "Código", "Descripción", "Cantidad"
 
 
-def tabla_articulos(clave: str = "articulos") -> list[Articulo]:
+def tabla_articulos(clave: str) -> list[Articulo]:
     """Tabla editable con filas agregables; 'Cantidad' solo acepta enteros."""
     inicial_key = f"{clave}_df_inicial"
     if inicial_key not in st.session_state:

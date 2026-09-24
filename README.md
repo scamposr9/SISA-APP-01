@@ -14,7 +14,7 @@ SISA-APP-01/
 ├── assets/
 │   └── logo.png               # Logo extraído del prototipo HTML
 ├── data/                      # Salida generada (ignorada por git)
-│   ├── actas_maestro.xlsx     #   Excel maestro, una fila por acta   (paso 4)
+│   ├── actas_maestro.xlsx     #   Excel maestro: hojas "Actas" y "Artículos"
 │   └── pdfs/                  #   PDF de cada acta
 └── acta_app/
     ├── config.py              # Constantes: metadatos del formato, opciones, colores, rutas
@@ -25,12 +25,26 @@ SISA-APP-01/
     │   ├── components.py      # Encabezado, tarjetas, listas dinámicas, tabla, firmas
     │   └── form.py            # Formulario completo -> devuelve un Acta
     ├── pdf/generator.py       # PDF con el diseño del formato físico (ReportLab)
-    └── storage/               # Guardado en el Excel maestro          (paso 4)
+    └── storage/
+        ├── base.py            # Contrato RepositorioActas + columnas del Excel
+        └── excel_local.py     # Excel maestro en disco (hoy); SharePoint irá a su lado
 tests/                         # Pruebas de validación, fila de Excel y PDF (pytest)
 ```
 
 El formulario (`ui/`) solo produce un objeto `Acta`; la validación, el PDF y el Excel trabajan
 sobre ese objeto sin depender de Streamlit.
+
+## Excel maestro
+
+- Hoja **Actas**: una fila por acta, mismas columnas que el prototipo + "Archivo PDF".
+  "Fecha" y "Fecha de registro" son fechas reales de Excel (hora de Perú).
+- Hoja **Artículos**: una fila por artículo empleado, enlazada por "N° de Acta".
+- Ambas son Tablas de Excel (filtros y estilo), requisito para escribir en ellas desde
+  SharePoint/Microsoft Graph más adelante.
+- No se permite guardar dos actas con el mismo N.°.
+
+> En Streamlit Community Cloud el disco no es permanente: descarga el Excel desde
+> "Base de datos de actas" al final de la app. La persistencia real llegará con SharePoint.
 
 ## Ejecutar
 

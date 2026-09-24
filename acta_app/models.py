@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date, datetime, time
 
-from acta_app.config import TIPO_SERVICIO_OTRO
+from acta_app.config import TIPO_SERVICIO_OTRO, ZONA_HORARIA
 
 
 @dataclass
@@ -58,6 +58,9 @@ class Acta:
     nombre_representante: str = ""
     firma_representante_png: bytes | None = None
 
+    # Se fija al guardar, para que el PDF y el Excel registren el mismo instante.
+    fecha_registro: datetime | None = None
+
     # ---------- Valores derivados, en el mismo formato que el prototipo ----------
     @property
     def tipo_servicio_texto(self) -> str:
@@ -97,8 +100,17 @@ class Acta:
             "Firma Cliente": "Firmado" if self.firma_cliente_png else "Pendiente",
             "Nombre Representante Sistemas Analíticos": self.nombre_representante,
             "Firma Sistemas Analíticos": "Firmado" if self.firma_representante_png else "Pendiente",
-            "Fecha de registro": datetime.now().strftime("%d/%m/%Y %I:%M:%S %p"),
+            "Fecha de registro": (self.fecha_registro or ahora()).strftime("%d/%m/%Y %I:%M:%S %p"),
         }
+
+
+def ahora() -> datetime:
+    """Fecha y hora actuales en hora de Perú (sin zona, lista para Excel)."""
+    return datetime.now(ZONA_HORARIA).replace(tzinfo=None, microsecond=0)
+
+
+def hoy() -> date:
+    return ahora().date()
 
 
 def formatear_fecha(valor: date | None) -> str:

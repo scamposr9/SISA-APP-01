@@ -4,9 +4,11 @@ import streamlit as st
 
 from acta_app import config
 from acta_app.models import Acta
+from acta_app.models import ahora
 from acta_app.pdf import generar_pdf, nombre_archivo_pdf
+from acta_app.storage import ActaDuplicadaError, AlmacenamientoError, obtener_repositorio
 from acta_app.ui.components import encabezado
-from acta_app.ui.form import formulario_acta
+from acta_app.ui.form import formulario_acta, limpiar_formulario
 from acta_app.ui.styles import aplicar_estilos
 from acta_app.validation import validar_acta
 
@@ -25,9 +27,11 @@ def dialogo_fila(acta: Acta) -> None:
 
 
 @st.dialog("Acta guardada correctamente")
-def dialogo_guardado(acta: Acta, pdf: bytes, nombre_pdf: str) -> None:
+def dialogo_guardado(acta: Acta, pdf: bytes, nombre_pdf: str, total_actas: int) -> None:
     st.write(
-        f"El acta N.° {acta.numero} se guardó y se generó el PDF con el mismo formato "
+        f"El acta N.° {acta.numero} se agregó como una nueva fila al Excel maestro "
+        f"({total_actas} {'acta registrada' if total_actas == 1 else 'actas registradas'} en total) "
+        "y se generó el PDF con el mismo formato "
         "del acta física."
     )
     st.download_button(
@@ -39,6 +43,30 @@ def dialogo_guardado(acta: Acta, pdf: bytes, nombre_pdf: str) -> None:
         type="primary",
         width="stretch",
     )
+    # La limpieza va en el callback (antes de dibujar) y st.rerun() recarga toda la página,
+    # no solo la ventana.
+    if st.button("Registrar una nueva acta", on_click=limpiar_formulario, width="stretch"):
+        st.rerun()
+
+
+def seccion_base_de_datos() -> None:
+    """Descarga del Excel maestro (en la nube, el disco del servidor no es permanente)."""
+    repo = obtener_repositorio()
+    excel = repo.excel_bytes()
+    total = 0 if excel is None else len(repo.leer_actas())
+    etiqueta = "acta registrada" if total == 1 else "actas registradas"
+    with st.expander(f"Base de datos de actas ({total} {etiqueta})"):
+        if excel is None:
+            st.caption("Todavía no se ha guardado ninguna acta.")
+            return
+        st.download_button(
+            "Descargar Excel maestro",
+            data=excel,
+            file_name=f"actas_maestro_{ahora():%Y%m%d_%H%M}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            on_click="ignore",
+            width="stretch",
+        )
 
 
 encabezado()
@@ -57,25 +85,40 @@ col_ver, col_guardar = st.columns(2)
 ver_fila = col_ver.button("Ver fila de datos", key="btn_ver_fila", width="stretch")
 guardar = col_guardar.button("Guardar acta", key="btn_guardar", width="stretch")
 
-st.markdown(
-    f'<div class="app-version">{config.SITIO_WEB} · versión {config.APP_VERSION}</div>',
-    unsafe_allow_html=True,
-)
+
+def aviso(tipo: str, mensaje: str) -> None:
+    """Muestra el aviso arriba (como el prototipo) y junto a los botones."""
+    icono = {"warning": "⚠️", "error": "❌", "success": "✅"}[tipo]
+    getattr(banner, tipo)(mensaje, icon=icono)
+    getattr(st, tipo)(mensaje, icon=icono)
+
 
 if ver_fila:
     dialogo_fila(acta)
 
 if guardar:
     errores = validar_acta(acta)
+    repo = obtener_repositorio()
     if errores:
-        mensaje = "Falta completar: " + ", ".join(errores)
-        banner.warning(mensaje, icon="⚠️")
-        st.warning(mensaje, icon="⚠️")
+        aviso("warning", "Falta completar: " + ", ".join(errores))
+    elif repo.existe(acta.numero):
+        aviso("warning", f"Ya existe un acta con el N.° {acta.numero}. Usa otro número.")
     else:
-        # TODO (paso 4): agregar la fila al Excel maestro.
+        acta.fecha_registro = ahora()
         pdf = generar_pdf(acta)
         nombre_pdf = nombre_archivo_pdf(acta)
-        config.PDF_DIR.mkdir(parents=True, exist_ok=True)
-        (config.PDF_DIR / nombre_pdf).write_bytes(pdf)
-        banner.success(f"Acta N.° {acta.numero} guardada correctamente.", icon="✅")
-        dialogo_guardado(acta, pdf, nombre_pdf)
+        try:
+            resultado = repo.guardar(acta, pdf, nombre_pdf)
+        except ActaDuplicadaError:
+            aviso("warning", f"Ya existe un acta con el N.° {acta.numero}. Usa otro número.")
+        except AlmacenamientoError as exc:
+            aviso("error", str(exc))
+        else:
+            banner.success(f"Acta N.° {acta.numero} guardada correctamente.", icon="✅")
+            dialogo_guardado(acta, pdf, nombre_pdf, resultado.total_actas)
+
+seccion_base_de_datos()
+st.markdown(
+    f'<div class="app-version">{config.SITIO_WEB} · versión {config.APP_VERSION}</div>',
+    unsafe_allow_html=True,
+)
