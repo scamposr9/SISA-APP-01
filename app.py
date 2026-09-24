@@ -57,6 +57,11 @@ col_ver, col_guardar = st.columns(2)
 ver_fila = col_ver.button("Ver fila de datos", key="btn_ver_fila", width="stretch")
 guardar = col_guardar.button("Guardar acta", key="btn_guardar", width="stretch")
 
+st.markdown(
+    f'<div class="app-version">{config.SITIO_WEB} · versión {config.APP_VERSION}</div>',
+    unsafe_allow_html=True,
+)
+
 if ver_fila:
     dialogo_fila(acta)
 

@@ -2,6 +2,10 @@
 
 from pathlib import Path
 
+# Versión visible al pie de la app: permite confirmar qué código está desplegado.
+# Actualizarla en cada cambio que se suba.
+APP_VERSION = "0.4 · 24/09/2026"
+
 # ---------- Rutas ----------
 BASE_DIR = Path(__file__).resolve().parent.parent
 ASSETS_DIR = BASE_DIR / "assets"

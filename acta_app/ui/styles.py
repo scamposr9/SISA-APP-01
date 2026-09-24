@@ -78,6 +78,8 @@ _CSS = f"""
   .sign-label {{ text-align: center; font-size: 13px; font-weight: 600; margin-top: 4px; }}
   [class*="st-key-borrar_firma"] button {{ color: {NAVY}; text-decoration: underline; font-size: 12px; }}
 
+  .app-version {{ text-align: center; font-size: 11px; color: #8A94A6; margin-top: 10px; }}
+
   /* ---------- Botones de acción ---------- */
   .st-key-btn_guardar button {{ background: {NAVY}; color: #fff; border: none; font-weight: 700; }}
   .st-key-btn_guardar button:hover {{ background: {NAVY_DARK}; color: #fff; }}

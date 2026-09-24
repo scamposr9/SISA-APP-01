@@ -55,3 +55,22 @@ def test_palabras_largas_sin_espacios_no_invaden_otras_columnas(acta_completa):
             assert x1 <= limite_derecho + 0.5, palabra
             if palabra.startswith("XXXX") and x0 < col_codigo_fin:
                 assert x1 <= col_codigo_fin, "el código invade la columna Descripción"
+
+
+def _lienzo():
+    from acta_app.pdf.generator import REGULAR, _Lienzo
+
+    lienzo = _Lienzo(io.BytesIO(), titulo="prueba")
+    lienzo.fuente(REGULAR, 9)
+    return lienzo
+
+
+def test_partir_empieza_la_palabra_larga_en_la_misma_linea_del_numero():
+    lineas = _lienzo().partir("1. " + "X" * 300, 100)
+    assert lineas[0].startswith("1. XXX")
+    assert "".join(lineas).replace(" ", "") == "1." + "X" * 300
+
+
+def test_partir_respeta_palabras_y_saltos_de_linea():
+    lineas = _lienzo().partir("uno dos tres\ncuatro", 100)
+    assert lineas == ["uno dos tres", "cuatro"]

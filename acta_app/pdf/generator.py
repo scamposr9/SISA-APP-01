@@ -11,7 +11,7 @@ import io
 from reportlab.lib.colors import Color, HexColor, white
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
-from reportlab.lib.utils import ImageReader, simpleSplit
+from reportlab.lib.utils import ImageReader
 from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.pdfgen import canvas
 
@@ -87,20 +87,31 @@ class _Lienzo:
         por caracteres para que nunca invada la columna vecina.
         """
         fuente, tamano, ancho = self.c._fontname, self.c._fontsize, ancho_mm * mm
+
+        def cabe(texto: str) -> bool:
+            return stringWidth(texto, fuente, tamano) <= ancho
+
         lineas: list[str] = []
         for parrafo in s.split("\n"):
-            for linea in simpleSplit(parrafo, fuente, tamano, ancho) or [""]:
-                if stringWidth(linea, fuente, tamano) <= ancho:
-                    lineas.append(linea)
+            actual = ""
+            for palabra in parrafo.split():
+                candidato = f"{actual} {palabra}" if actual else palabra
+                if cabe(candidato):
+                    actual = candidato
                     continue
-                actual = ""
-                for ch in linea:
-                    if actual and stringWidth(actual + ch, fuente, tamano) > ancho:
-                        lineas.append(actual)
-                        actual = ch.lstrip()
-                    else:
-                        actual += ch
-                lineas.append(actual)
+                if cabe(palabra):  # la palabra entra completa en la línea siguiente
+                    lineas.append(actual)
+                    actual = palabra
+                    continue
+                # Palabra más ancha que la columna: se parte por caracteres,
+                # empezando en el espacio que queda en la línea actual.
+                actual = f"{actual} " if actual else ""
+                for ch in palabra:
+                    if actual.strip() and not cabe(actual + ch):
+                        lineas.append(actual.rstrip())
+                        actual = ""
+                    actual += ch
+            lineas.append(actual)
         return lineas or [""]
 
     # --- formas ---
