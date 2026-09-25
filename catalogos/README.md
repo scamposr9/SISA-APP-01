@@ -5,10 +5,10 @@ La app lee estos archivos (si existen) para sugerir valores al escribir en el fo
 | Archivo | Columnas que usa | Campos del formulario |
 |---|---|---|
 | `equipos.xlsx` | Descripcion, Marca, Modelo, Serie | Equipo, Marca, Modelo, N.° Serie |
-| `clientes.xlsx` | Cliente, Ubicación | Cliente, Ubicación |
+| `clientes.xlsx` | Cliente, Ubicación | *(pendiente: por ahora Cliente y Ubicación se escriben a mano)* |
 
 - Las demás columnas (IdeEquipo, Almacen, …) se ignoran.
-- Los clientes y ubicaciones de las actas ya guardadas también se sugieren.
+- Si una serie se repite en varios equipos, no se autocompleta nada: el ingeniero elige.
 - Al reemplazar un archivo en GitHub, Streamlit Cloud se actualiza solo y la app vuelve a
   leerlo (la caché se invalida cuando cambia el archivo).
 

@@ -6,7 +6,6 @@ import streamlit as st
 
 from acta_app import config
 from acta_app.catalogo import Catalogo
-from acta_app.storage import obtener_repositorio
 
 
 def _firma_archivo(ruta) -> float:
@@ -14,23 +13,16 @@ def _firma_archivo(ruta) -> float:
 
 
 @st.cache_data(show_spinner=False, ttl=600)
-def _cargar(firma: tuple[float, float, float]) -> Catalogo:
-    # `firma` (fechas de modificación) solo sirve como clave de la caché; no debe llevar
+def _cargar(firma: float) -> Catalogo:
+    # `firma` (fecha de modificación) solo sirve como clave de la caché; no debe llevar
     # "_" delante, porque Streamlit no usa esos parámetros para la clave.
     del firma
-    return Catalogo.desde_fuentes(
-        config.CATALOGO_EQUIPOS_PATH,
-        config.CATALOGO_CLIENTES_PATH,
-        obtener_repositorio().leer_actas(),
-    )
+    # Por ahora solo equipos: Cliente y Ubicación se escriben a mano hasta tener la lista
+    # oficial (Catalogo ya admite clientes para cuando esté en SharePoint).
+    return Catalogo.desde_fuentes(config.CATALOGO_EQUIPOS_PATH)
 
 
 def cargar_catalogo() -> Catalogo:
-    """Se vuelve a leer cuando cambia el inventario, la lista de clientes o se guarda un
-    acta (la fecha de modificación de los archivos es parte de la clave de la caché)."""
-    firma = (
-        _firma_archivo(config.CATALOGO_EQUIPOS_PATH),
-        _firma_archivo(config.CATALOGO_CLIENTES_PATH),
-        _firma_archivo(config.EXCEL_MAESTRO_PATH),
-    )
-    return _cargar(firma)
+    """Se vuelve a leer cuando cambia el inventario (su fecha de modificación es parte de
+    la clave de la caché) o, como máximo, cada 10 minutos."""
+    return _cargar(_firma_archivo(config.CATALOGO_EQUIPOS_PATH))

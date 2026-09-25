@@ -38,7 +38,8 @@ def limpiar_formulario() -> None:
 
 
 # ---------- Autocompletado ----------
-CAMPOS_CATALOGO = ["cliente", "ubicacion", "equipo", "marca", "modelo", "serie"]
+# Cliente y Ubicación se escriben a mano hasta tener la lista oficial de clientes.
+CAMPOS_CATALOGO = ["equipo", "marca", "modelo", "serie"]
 
 
 def _seleccion() -> dict[str, str]:
@@ -47,13 +48,14 @@ def _seleccion() -> dict[str, str]:
 
 def _autocompletar() -> None:
     """Al elegir un valor, completa los campos vacíos que quedan determinados
-    (p. ej. la serie define equipo, marca y modelo; el cliente, su única ubicación)."""
+    (p. ej. una serie única define equipo, marca y modelo). Si hay varias coincidencias
+    no se completa nada: decide el ingeniero con el desplegable."""
     for campo, valor in cargar_catalogo().autocompletar(_seleccion()).items():
         st.session_state[k(campo)] = valor
 
 
 def _campo_catalogo(contenedor, texto: str, campo: str) -> str:
-    """Desplegable con búsqueda: al escribir 'Re' sugiere 'Hospital Rebagliati', etc.
+    """Desplegable con búsqueda: al escribir 'analiz' sugiere 'Analizador Bioquimico', etc.
     Acepta valores nuevos que no estén en el catálogo."""
     valor = contenedor.selectbox(
         etiqueta(texto),
@@ -86,9 +88,9 @@ def formulario_acta() -> Acta:
     with seccion("datos", "Datos generales", obligatorio=False):
         c1, c2 = st.columns(2)
         acta.fecha = c1.date_input(etiqueta("Fecha"), value=hoy(), format="DD/MM/YYYY", key=k("fecha"))
-        acta.ubicacion = _campo_catalogo(c2, "Ubicación", "ubicacion")
+        acta.ubicacion = c2.text_input(etiqueta("Ubicación"), key=k("ubicacion")).strip()
         c1, c2 = st.columns(2)
-        acta.cliente = _campo_catalogo(c1, "Cliente", "cliente")
+        acta.cliente = c1.text_input(etiqueta("Cliente"), key=k("cliente")).strip()
         acta.equipo = _campo_catalogo(c2, "Equipo", "equipo")
         c1, c2 = st.columns(2)
         acta.marca = _campo_catalogo(c1, "Marca", "marca")

@@ -8,12 +8,14 @@ from acta_app.catalogo import Catalogo, clave, limpiar
 def catalogo(tmp_path):
     equipos = pd.DataFrame(
         {
-            "IdeEquipo": [1, 2, 3, 4, 5],
-            "Descripcion": ["Analizador Bioquimico", "Analizador Bioquimico", "Impresora", "Impresora", "Hemobascula"],
-            "Marca": ["ABBOTT DIAGNOSTICS", "ABBOTT DIAGNOSTICS", "HP", "BROTHER", "VASINI STRUMENTI"],
-            "Modelo": ["C4000", "C4000", "M501dn", "HL-L5100DN          ", "EO51P-TC-RF"],
-            "Serie": ["C462244", "C462311", "HP-1", "U64219B0N815463     ", "3748"],
-            "Almacen": [None, None, "A1", None, None],
+            "IdeEquipo": [1, 2, 3, 4, 5, 6],
+            "Descripcion": ["Analizador Bioquimico", "Analizador Bioquimico", "Impresora", "Impresora",
+                            "Hemobascula", "Maleta de Transporte"],
+            "Marca": ["ABBOTT DIAGNOSTICS", "ABBOTT DIAGNOSTICS", "HP", "BROTHER", "VASINI STRUMENTI",
+                      "VASINI STRUMENTI"],
+            "Modelo": ["C4000", "C4000", "M501dn", "HL-L5100DN          ", "EO51P-TC-RF", "EO/1"],
+            "Serie": ["C462244", "C462311", "HP-1", "U64219B0N815463     ", "3748", "3748"],
+            "Almacen": [None, None, "A1", None, None, None],
         }
     )
     ruta_equipos = tmp_path / "equipos.xlsx"
@@ -45,7 +47,7 @@ def test_las_opciones_se_filtran_con_lo_ya_elegido(catalogo):
 
 def test_un_valor_nuevo_no_deja_la_lista_vacia(catalogo):
     assert catalogo.opciones("modelo", {"marca": "MARCA NUEVA"}) == [
-        "C4000", "EO51P-TC-RF", "HL-L5100DN", "M501dn"
+        "C4000", "EO/1", "EO51P-TC-RF", "HL-L5100DN", "M501dn"
     ]
     assert "Modelo X" in catalogo.opciones("modelo", {"modelo": "Modelo X"})
 
@@ -73,3 +75,8 @@ def test_cliente_autocompleta_su_ubicacion(catalogo):
 def test_sin_archivos_el_catalogo_queda_vacio(tmp_path):
     vacio = Catalogo.desde_fuentes(tmp_path / "no.xlsx", tmp_path / "no.xlsx")
     assert vacio.opciones("cliente", {}) == [] and vacio.autocompletar({"serie": "X"}) == {}
+
+
+def test_serie_repetida_no_autocompleta_nada_pero_ofrece_las_opciones(catalogo):
+    assert catalogo.autocompletar({"serie": "3748"}) == {}
+    assert catalogo.opciones("equipo", {"serie": "3748"}) == ["Hemobascula", "Maleta de Transporte"]

@@ -1,8 +1,9 @@
 """Catálogo para el autocompletado: equipos (inventario) y clientes.
 
 - Equipos: `catalogos/equipos.xlsx` (columnas Descripcion, Marca, Modelo, Serie).
-- Clientes: `catalogos/clientes.xlsx` (columnas Cliente, Ubicación), si existe, más los
-  clientes y ubicaciones de las actas ya guardadas.
+- Clientes (aún no se usa en el formulario: Cliente y Ubicación se escriben a mano hasta
+  tener la lista oficial): `catalogos/clientes.xlsx` (Cliente, Ubicación) y las actas
+  ya guardadas.
 
 Las opciones de cada campo se filtran con lo ya elegido en los demás (p. ej. al elegir la
 marca solo aparecen sus modelos) y los campos que quedan determinados se autocompletan.
@@ -69,9 +70,16 @@ class Catalogo:
 
     @classmethod
     def desde_fuentes(
-        cls, ruta_equipos: Path, ruta_clientes: Path, actas: pd.DataFrame | None = None
+        cls,
+        ruta_equipos: Path,
+        ruta_clientes: Path | None = None,
+        actas: pd.DataFrame | None = None,
     ) -> Catalogo:
-        clientes = leer_excel(ruta_clientes, COLUMNAS_CLIENTES)
+        clientes = (
+            leer_excel(ruta_clientes, COLUMNAS_CLIENTES)
+            if ruta_clientes is not None
+            else pd.DataFrame(columns=list(COLUMNAS_CLIENTES))
+        )
         if actas is not None and not actas.empty:
             desde_actas = _normalizar(actas, COLUMNAS_CLIENTES)
             clientes = pd.concat([clientes, desde_actas]).drop_duplicates().reset_index(drop=True)
@@ -113,6 +121,9 @@ class Catalogo:
             for campo, valor in elegidos.items():
                 filas = filas[filas[campo].map(clave) == clave(valor)]
             if filas.empty:
+                continue
+            if "serie" in elegidos and len(filas) > 1:
+                # Serie repetida en varios equipos: no se completa nada, decide el ingeniero.
                 continue
             for campo in tabla.columns:
                 if campo in AUTOCOMPLETABLES and campo not in elegidos:
