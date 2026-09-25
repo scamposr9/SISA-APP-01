@@ -182,7 +182,33 @@ def _encabezado(lz: _Lienzo, acta: Acta) -> None:
 def _numero_acta(lz: _Lienzo, acta: Acta) -> None:
     lz.fuente(BOLD, 13, RED)
     lz.texto(PAGE_W / 2, lz.y, f"N.° {acta.numero or '—'}", align="center")
+    if acta.revision:
+        lz.fuente(BOLD, 9.5, NAVY)
+        lz.texto(PAGE_W / 2, lz.y + 5.5, f"REVISIÓN {acta.revision} — reemplaza a la versión anterior", align="center")
+        lz.y += 5.5
     lz.y += 10
+
+
+def _nota_correccion(lz: _Lienzo, acta: Acta) -> None:
+    """Recuadro con los datos de la corrección, antes de las firmas."""
+    if not acta.revision:
+        return
+    fecha = acta.fecha_correccion.strftime("%d/%m/%Y %I:%M %p") if acta.fecha_correccion else "—"
+    lz.fuente(REGULAR, 8.5, INK)
+    lineas = [
+        f"Revisión {acta.revision} · corregida el {fecha} por {acta.corregido_por or '—'}.",
+        *lz.partir(f"Motivo: {acta.motivo_correccion or '—'}", CONTENT_W - 6),
+    ]
+    alto = 5 + 4.3 * len(lineas)
+    lz.y += 4
+    lz.asegurar_espacio(alto + 2)
+    lz.rect(MARGIN_X, lz.y, CONTENT_W, alto, color=NAVY)
+    lz.fuente(BOLD, 8.5, NAVY)
+    lz.texto(MARGIN_X + 3, lz.y + 4.5, lineas[0])
+    lz.fuente(REGULAR, 8.5, INK)
+    for i, linea in enumerate(lineas[1:], start=1):
+        lz.texto(MARGIN_X + 3, lz.y + 4.5 + 4.3 * i, linea)
+    lz.y += alto + 2
 
 
 def _datos_generales(lz: _Lienzo, acta: Acta) -> None:
@@ -363,7 +389,8 @@ def _firmas(lz: _Lienzo, acta: Acta) -> None:
 def generar_pdf(acta: Acta) -> bytes:
     """Genera el PDF del acta y lo devuelve como bytes."""
     buffer = io.BytesIO()
-    lz = _Lienzo(buffer, titulo=f"Acta de Atención N.° {acta.numero}")
+    titulo = f"Acta de Atención N.° {acta.numero}" + (f" (Revisión {acta.revision})" if acta.revision else "")
+    lz = _Lienzo(buffer, titulo=titulo)
 
     _encabezado(lz, acta)
     _numero_acta(lz, acta)
@@ -376,6 +403,7 @@ def generar_pdf(acta: Acta) -> bytes:
     _estado_final(lz, acta)
     _articulos(lz, acta)
     _lista(lz, "Observaciones y/o recomendaciones", acta.observaciones)
+    _nota_correccion(lz, acta)
     _firmas(lz, acta)
 
     lz.cerrar()
@@ -383,6 +411,8 @@ def generar_pdf(acta: Acta) -> bytes:
 
 
 def nombre_archivo_pdf(acta: Acta) -> str:
-    """Mismo criterio que el prototipo: 'Acta_<número>.pdf' con caracteres seguros."""
+    """Mismo criterio que el prototipo: 'Acta_<número>.pdf' con caracteres seguros.
+    Las correcciones agregan la revisión: 'Acta_<número>_Rev1.pdf'."""
     seguro = "".join(ch if (ch.isascii() and ch.isalnum()) or ch == "-" else "_" for ch in acta.numero) or "sin_numero"
-    return f"Acta_{seguro}.pdf"
+    revision = f"_Rev{acta.revision}" if acta.revision else ""
+    return f"Acta_{seguro}{revision}.pdf"

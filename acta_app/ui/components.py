@@ -61,6 +61,15 @@ def etiqueta(texto: str, obligatorio: bool = True) -> str:
 
 
 # ---------- Lista dinámica de puntos ----------
+def precargar_lista(clave: str, valores: list[str]) -> None:
+    """Deja la lista dinámica `clave` con estos puntos (para corregir un acta)."""
+    valores = valores or [""]
+    st.session_state[f"{clave}_ids"] = list(range(len(valores)))
+    st.session_state[f"{clave}_contador"] = len(valores)
+    for i, valor in enumerate(valores):
+        st.session_state[f"{clave}_txt_{i}"] = valor
+
+
 def lista_dinamica(clave: str, placeholder: str) -> list[str]:
     """Lista numerada de textos con botones '+ Agregar punto' y '×' para quitar.
 
@@ -104,18 +113,28 @@ def lista_dinamica(clave: str, placeholder: str) -> list[str]:
 COL_CODIGO, COL_DESCRIPCION, COL_CANTIDAD = "Código", "Descripción", "Cantidad"
 
 
+def _tabla_inicial(articulos: list[Articulo]) -> pd.DataFrame:
+    """Artículos dados + filas vacías hasta completar las del formato físico."""
+    vacias = max(config.FILAS_ARTICULOS_INICIALES - len(articulos), 0)
+    filas = [(a.codigo, a.descripcion, a.cantidad) for a in articulos] + [("", "", None)] * vacias
+    return pd.DataFrame(
+        {
+            COL_CODIGO: pd.Series([f[0] for f in filas], dtype="string"),
+            COL_DESCRIPCION: pd.Series([f[1] for f in filas], dtype="string"),
+            COL_CANTIDAD: pd.Series([f[2] for f in filas], dtype="Int64"),
+        }
+    )
+
+
+def precargar_articulos(clave: str, articulos: list[Articulo]) -> None:
+    st.session_state[f"{clave}_df_inicial"] = _tabla_inicial(articulos)
+
+
 def tabla_articulos(clave: str) -> list[Articulo]:
     """Tabla editable con filas agregables; 'Cantidad' solo acepta enteros."""
     inicial_key = f"{clave}_df_inicial"
     if inicial_key not in st.session_state:
-        n = config.FILAS_ARTICULOS_INICIALES
-        st.session_state[inicial_key] = pd.DataFrame(
-            {
-                COL_CODIGO: pd.Series([""] * n, dtype="string"),
-                COL_DESCRIPCION: pd.Series([""] * n, dtype="string"),
-                COL_CANTIDAD: pd.Series([None] * n, dtype="Int64"),
-            }
-        )
+        st.session_state[inicial_key] = _tabla_inicial([])
 
     df = st.data_editor(
         st.session_state[inicial_key],

@@ -7,14 +7,22 @@ from acta_app.models import Acta, ahora
 from acta_app.pdf import generar_pdf, nombre_archivo_pdf
 from acta_app.storage import (
     ActaDuplicadaError,
+    ActaNoEncontradaError,
     AlmacenamientoError,
     fila_plana,
     formatear_valor,
     obtener_repositorio,
     registro_desde_acta,
 )
-from acta_app.ui.components import encabezado
-from acta_app.ui.form import formulario_acta, limpiar_formulario
+from acta_app.ui.components import encabezado, etiqueta, seccion
+from acta_app.ui.form import (
+    acta_en_correccion,
+    cargar_en_formulario,
+    formulario_acta,
+    k,
+    limpiar_formulario,
+    salir_de_correccion,
+)
 from acta_app.ui.styles import aplicar_estilos
 from acta_app.validation import validar_acta
 
@@ -55,6 +63,89 @@ def dialogo_guardado(acta: Acta, pdf: bytes, nombre_pdf: str, total_actas: int) 
     # no solo la ventana.
     if st.button("Registrar una nueva acta", on_click=limpiar_formulario, width="stretch"):
         st.rerun()
+
+
+MODO_NUEVA, MODO_CORREGIR = "Nueva acta", "Corregir un acta"
+
+
+def volver_a_nueva_acta() -> None:
+    salir_de_correccion()
+    st.session_state["modo"] = MODO_NUEVA
+
+
+@st.dialog("Corrección guardada")
+def dialogo_correccion(acta: Acta, pdf: bytes, nombre_pdf: str) -> None:
+    st.write(
+        f"Se actualizó la fila del acta N.° {acta.numero} en el Excel maestro con los datos "
+        f"corregidos (revisión {acta.revision}). El PDF original se conserva y se creó "
+        f"«{nombre_pdf}»; ambos quedan enlazados en la fila."
+    )
+    st.download_button(
+        "Descargar PDF corregido",
+        data=pdf,
+        file_name=nombre_pdf,
+        mime="application/pdf",
+        on_click="ignore",
+        type="primary",
+        width="stretch",
+    )
+    if st.button("Volver a registrar actas nuevas", on_click=volver_a_nueva_acta, width="stretch"):
+        st.rerun()
+
+
+def _cargar_para_corregir() -> None:
+    numero = st.session_state.get("acta_a_corregir")
+    if not numero:
+        return
+    try:
+        cargar_en_formulario(obtener_repositorio().obtener(numero))
+    except ActaNoEncontradaError:
+        st.session_state["aviso_correccion"] = f"No se encontró el acta N.° {numero}."
+
+
+def selector_correccion() -> Acta | None:
+    """Elegir el acta a corregir. Devuelve el acta original cargada (o None)."""
+    numeros = obtener_repositorio().numeros()
+    with seccion("corregir", "Corregir un acta", obligatorio=False):
+        if not numeros:
+            st.info("Todavía no hay actas guardadas para corregir.")
+            return None
+        c1, c2 = st.columns([2, 1], vertical_alignment="bottom")
+        c1.selectbox(
+            "N.° de acta a corregir",
+            numeros,
+            index=None,
+            key="acta_a_corregir",
+            placeholder="Escribe o elige el número…",
+        )
+        c2.button("Cargar acta", on_click=_cargar_para_corregir, width="stretch")
+        if aviso := st.session_state.pop("aviso_correccion", None):
+            st.warning(aviso)
+        original = acta_en_correccion()
+        if original is None:
+            st.caption("Al cargarla, sus datos aparecen abajo para que los corrijas.")
+            return None
+        st.info(
+            f"Corrigiendo el acta N.° {original.numero} (revisión actual: {original.revision}). "
+            f"Al guardar se actualiza su fila en el Excel y se crea el PDF de la revisión "
+            f"{original.revision + 1}; el PDF original se conserva."
+        )
+        st.text_area(
+            etiqueta("Motivo de la corrección"),
+            key=k("motivo_correccion"),
+            placeholder="Ej: Se corrigió el número de serie del equipo.",
+            height=80,
+        )
+        st.text_input(etiqueta("Corregido por"), key=k("corregido_por"))
+        return original
+
+
+def aplicar_datos_de_correccion(acta: Acta, original: Acta) -> Acta:
+    acta.revision = original.revision + 1
+    acta.fecha_registro = original.fecha_registro
+    acta.corregido_por = (st.session_state.get(k("corregido_por")) or "").strip()
+    acta.motivo_correccion = (st.session_state.get(k("motivo_correccion")) or "").strip()
+    return acta
 
 
 def seccion_base_de_datos() -> None:
@@ -98,13 +189,28 @@ st.markdown(
     '<div class="required-note"><span class="req-star">*</span> Campo obligatorio</div>',
     unsafe_allow_html=True,
 )
+modo = st.segmented_control(
+    "Modo",
+    [MODO_NUEVA, MODO_CORREGIR],
+    default=MODO_NUEVA,
+    required=True,
+    key="modo",
+    on_change=salir_de_correccion,
+    label_visibility="collapsed",
+)
 banner = st.empty()
 
-acta = formulario_acta()
-
-col_ver, col_guardar = st.columns(2)
-ver_fila = col_ver.button("Ver fila de datos", key="btn_ver_fila", width="stretch")
-guardar = col_guardar.button("Guardar acta", key="btn_guardar", width="stretch")
+original = selector_correccion() if modo == MODO_CORREGIR else None
+if modo == MODO_CORREGIR and original is None:
+    acta = None
+else:
+    acta = formulario_acta()
+    if original is not None:
+        acta = aplicar_datos_de_correccion(acta, original)
+    col_ver, col_guardar = st.columns(2)
+    ver_fila = col_ver.button("Ver fila de datos", key="btn_ver_fila", width="stretch")
+    texto_guardar = "Guardar corrección" if original is not None else "Guardar acta"
+    guardar = col_guardar.button(texto_guardar, key="btn_guardar", width="stretch")
 
 
 def aviso(tipo: str, mensaje: str) -> None:
@@ -114,29 +220,53 @@ def aviso(tipo: str, mensaje: str) -> None:
     getattr(st, tipo)(mensaje, icon=icono)
 
 
-if ver_fila:
+def guardar_acta_nueva(acta: Acta) -> None:
+    repo = obtener_repositorio()
+    if repo.existe(acta.numero):
+        aviso("warning", f"Ya existe un acta con el N.° {acta.numero}. Usa otro número.")
+        return
+    acta.fecha_registro = ahora()
+    pdf = generar_pdf(acta)
+    nombre_pdf = nombre_archivo_pdf(acta)
+    try:
+        resultado = repo.guardar(acta, pdf, nombre_pdf)
+    except ActaDuplicadaError:
+        aviso("warning", f"Ya existe un acta con el N.° {acta.numero}. Usa otro número.")
+    except AlmacenamientoError as exc:
+        aviso("error", str(exc))
+    else:
+        banner.success(f"Acta N.° {acta.numero} guardada correctamente.", icon="✅")
+        dialogo_guardado(acta, pdf, nombre_pdf, resultado.total_actas)
+
+
+def guardar_correccion(acta: Acta) -> None:
+    acta.fecha_correccion = ahora()
+    pdf = generar_pdf(acta)
+    nombre_pdf = nombre_archivo_pdf(acta)
+    try:
+        obtener_repositorio().corregir(acta, pdf, nombre_pdf)
+    except (AlmacenamientoError, ActaNoEncontradaError) as exc:
+        mensaje = str(exc) if isinstance(exc, AlmacenamientoError) else f"No se encontró el acta N.° {acta.numero}."
+        aviso("error", mensaje)
+    else:
+        banner.success(f"Corrección del acta N.° {acta.numero} guardada (revisión {acta.revision}).", icon="✅")
+        dialogo_correccion(acta, pdf, nombre_pdf)
+
+
+if acta is not None and ver_fila:
     dialogo_fila(acta)
 
-if guardar:
+if acta is not None and guardar:
     errores = validar_acta(acta)
-    repo = obtener_repositorio()
+    if original is not None:
+        errores += [e for e, v in (("Motivo de la corrección", acta.motivo_correccion),
+                                   ("Corregido por", acta.corregido_por)) if not v]
     if errores:
         aviso("warning", "Falta completar: " + ", ".join(errores))
-    elif repo.existe(acta.numero):
-        aviso("warning", f"Ya existe un acta con el N.° {acta.numero}. Usa otro número.")
+    elif original is not None:
+        guardar_correccion(acta)
     else:
-        acta.fecha_registro = ahora()
-        pdf = generar_pdf(acta)
-        nombre_pdf = nombre_archivo_pdf(acta)
-        try:
-            resultado = repo.guardar(acta, pdf, nombre_pdf)
-        except ActaDuplicadaError:
-            aviso("warning", f"Ya existe un acta con el N.° {acta.numero}. Usa otro número.")
-        except AlmacenamientoError as exc:
-            aviso("error", str(exc))
-        else:
-            banner.success(f"Acta N.° {acta.numero} guardada correctamente.", icon="✅")
-            dialogo_guardado(acta, pdf, nombre_pdf, resultado.total_actas)
+        guardar_acta_nueva(acta)
 
 seccion_base_de_datos()
 st.markdown(

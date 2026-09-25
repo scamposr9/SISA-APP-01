@@ -8,3 +8,4 @@ venv/
 data/*.xlsx
 data/pdfs/*.pdf
 ~$*.xlsx
+data/firmas/

@@ -16,11 +16,19 @@ from acta_app import config
 from acta_app.models import Acta, ahora
 from acta_app.storage.base import (
     ActaDuplicadaError,
+    ActaNoEncontradaError,
     AlmacenamientoError,
     ResultadoGuardado,
     normalizar_numero,
 )
-from acta_app.storage.esquema import Registro, disposicion, registro_desde_acta
+from acta_app.storage.esquema import (
+    COLUMNA_PDF_CORREGIDO,
+    COLUMNA_PDF_ORIGINAL,
+    Registro,
+    acta_desde_registro,
+    disposicion,
+    registro_desde_acta,
+)
 from acta_app.storage.excel_formato import (
     HOJA_ACTAS,
     construir_libro,
@@ -33,14 +41,33 @@ _LOCK = threading.Lock()
 
 
 class RepositorioExcelLocal:
-    def __init__(self, ruta_excel: Path = config.EXCEL_MAESTRO_PATH, dir_pdf: Path = config.PDF_DIR):
+    def __init__(
+        self,
+        ruta_excel: Path = config.EXCEL_MAESTRO_PATH,
+        dir_pdf: Path = config.PDF_DIR,
+        dir_firmas: Path | None = None,
+    ):
         self.ruta_excel = Path(ruta_excel)
         self.dir_pdf = Path(dir_pdf)
+        # Firmas en PNG, para reutilizarlas al corregir un acta.
+        self.dir_firmas = Path(dir_firmas) if dir_firmas else self.ruta_excel.parent / "firmas"
 
     # ---------- Lectura ----------
     def existe(self, numero: str) -> bool:
         buscado = normalizar_numero(numero)
         return any(normalizar_numero(r.numero) == buscado for r in self._registros())
+
+    def numeros(self) -> list[str]:
+        """Números de acta registrados, del más reciente al más antiguo."""
+        return [r.numero for r in reversed(self._registros())]
+
+    def obtener(self, numero: str) -> Acta:
+        """Acta guardada (con sus firmas), para cargarla en el formulario de corrección."""
+        registro = self._buscar(self._registros(), numero)
+        acta = acta_desde_registro(registro)
+        acta.firma_cliente_png = self._leer_firma(acta.numero, "cliente")
+        acta.firma_representante_png = self._leer_firma(acta.numero, "representante")
+        return acta
 
     def leer_actas(self) -> pd.DataFrame:
         registros = self._registros()
@@ -78,8 +105,10 @@ class RepositorioExcelLocal:
                 self.dir_pdf.mkdir(parents=True, exist_ok=True)
                 ruta_pdf = self.dir_pdf / nombre_pdf
                 ruta_pdf.write_bytes(pdf)
-                enlace = f"{self._carpeta_pdf_relativa()}/{nombre_pdf}"
-                registros.append(registro_desde_acta(acta, nombre_pdf, enlace))
+                registro = registro_desde_acta(acta)
+                registro.poner_pdf(COLUMNA_PDF_ORIGINAL, nombre_pdf, self._enlace(nombre_pdf))
+                registros.append(registro)
+                self._guardar_firmas(acta)
                 self._guardar_atomico(construir_libro(registros))
             except PermissionError as exc:
                 raise AlmacenamientoError(
@@ -90,7 +119,69 @@ class RepositorioExcelLocal:
                 raise AlmacenamientoError(f"No se pudo guardar el acta: {exc}") from exc
             return ResultadoGuardado(total_actas=len(registros), ubicacion_pdf=str(ruta_pdf))
 
+    def corregir(self, acta: Acta, pdf: bytes, nombre_pdf: str) -> ResultadoGuardado:
+        """Reemplaza la fila del acta con los datos corregidos. El PDF original se conserva
+        y el nuevo (Rev1, Rev2, ...) queda enlazado en «PDF corregido»."""
+        with _LOCK:
+            registros = self._registros()
+            anterior = self._buscar(registros, acta.numero)
+            revision_anterior = int(anterior.valores.get("Revisión") or 0)
+            if acta.revision != revision_anterior + 1:
+                raise AlmacenamientoError(
+                    f"El acta N.° {acta.numero} fue corregida por otra persona mientras la "
+                    "editabas. Vuelve a cargarla e inténtalo de nuevo."
+                )
+            try:
+                self.dir_pdf.mkdir(parents=True, exist_ok=True)
+                ruta_pdf = self.dir_pdf / nombre_pdf
+                ruta_pdf.write_bytes(pdf)
+                nuevo = registro_desde_acta(acta)
+                # Se mantienen el registro original y su PDF.
+                nuevo.valores["Fecha de registro"] = anterior.valores.get("Fecha de registro")
+                nuevo.poner_pdf(
+                    COLUMNA_PDF_ORIGINAL,
+                    anterior.valores.get(COLUMNA_PDF_ORIGINAL),
+                    anterior.enlaces.get(COLUMNA_PDF_ORIGINAL),
+                )
+                nuevo.poner_pdf(COLUMNA_PDF_CORREGIDO, nombre_pdf, self._enlace(nombre_pdf))
+                registros[registros.index(anterior)] = nuevo
+                self._guardar_firmas(acta)
+                self._guardar_atomico(construir_libro(registros))
+            except PermissionError as exc:
+                raise AlmacenamientoError(
+                    "No se pudo escribir el Excel maestro. Si está abierto en Excel, ciérralo e "
+                    "inténtalo de nuevo."
+                ) from exc
+            except OSError as exc:
+                raise AlmacenamientoError(f"No se pudo guardar la corrección: {exc}") from exc
+            return ResultadoGuardado(total_actas=len(registros), ubicacion_pdf=str(ruta_pdf))
+
     # ---------- Internos ----------
+    @staticmethod
+    def _buscar(registros: list[Registro], numero: str) -> Registro:
+        buscado = normalizar_numero(numero)
+        for registro in registros:
+            if normalizar_numero(registro.numero) == buscado:
+                return registro
+        raise ActaNoEncontradaError(numero)
+
+    def _enlace(self, nombre_pdf: str) -> str:
+        return f"{self._carpeta_pdf_relativa()}/{nombre_pdf}"
+
+    def _ruta_firma(self, numero: str, quien: str) -> Path:
+        seguro = "".join(ch if ch.isalnum() or ch == "-" else "_" for ch in numero)
+        return self.dir_firmas / f"{seguro}_{quien}.png"
+
+    def _leer_firma(self, numero: str, quien: str) -> bytes | None:
+        ruta = self._ruta_firma(numero, quien)
+        return ruta.read_bytes() if ruta.exists() else None
+
+    def _guardar_firmas(self, acta: Acta) -> None:
+        self.dir_firmas.mkdir(parents=True, exist_ok=True)
+        for quien, png in (("cliente", acta.firma_cliente_png), ("representante", acta.firma_representante_png)):
+            if png:
+                self._ruta_firma(acta.numero, quien).write_bytes(png)
+
     def _registros(self) -> list[Registro]:
         if not self.ruta_excel.exists():
             return []

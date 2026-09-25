@@ -74,3 +74,15 @@ def test_partir_empieza_la_palabra_larga_en_la_misma_linea_del_numero():
 def test_partir_respeta_palabras_y_saltos_de_linea():
     lineas = _lienzo().partir("uno dos tres\ncuatro", 100)
     assert lineas == ["uno dos tres", "cuatro"]
+
+
+def test_pdf_de_revision_indica_la_correccion(acta_completa):
+    from datetime import datetime
+
+    acta_completa.revision, acta_completa.corregido_por = 1, "Ana Ruiz"
+    acta_completa.motivo_correccion = "Se corrigió el número de serie"
+    acta_completa.fecha_correccion = datetime(2026, 9, 25, 10, 30)
+    texto = _texto(generar_pdf(acta_completa))
+    assert "REVISIÓN 1" in texto
+    assert "Motivo: Se corrigió el número de serie" in texto
+    assert nombre_archivo_pdf(acta_completa) == "Acta_2026-00051_Rev1.pdf"

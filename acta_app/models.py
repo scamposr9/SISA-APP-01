@@ -59,6 +59,12 @@ class Acta:
     # Se fija al guardar, para que el PDF y el Excel registren el mismo instante.
     fecha_registro: datetime | None = None
 
+    # ---------- Corrección (revisión 0 = acta original) ----------
+    revision: int = 0
+    fecha_correccion: datetime | None = None
+    corregido_por: str = ""
+    motivo_correccion: str = ""
+
     # ---------- Valores derivados, en el mismo formato que el prototipo ----------
     @property
     def tipo_servicio_texto(self) -> str:

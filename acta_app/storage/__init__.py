@@ -6,6 +6,7 @@ que cumpla `RepositorioActas` y devolverla aquí; el resto de la app no cambia.
 
 from acta_app.storage.base import (
     ActaDuplicadaError,
+    ActaNoEncontradaError,
     AlmacenamientoError,
     RepositorioActas,
     ResultadoGuardado,
@@ -20,6 +21,7 @@ def obtener_repositorio() -> RepositorioActas:
 
 __all__ = [
     "ActaDuplicadaError",
+    "ActaNoEncontradaError",
     "AlmacenamientoError",
     "RepositorioActas",
     "RepositorioExcelLocal",

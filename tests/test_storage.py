@@ -80,7 +80,7 @@ def test_las_columnas_se_adaptan_al_acta_con_mas_items(repo, acta_completa):
 def test_archivo_pdf_es_un_enlace_al_pdf(repo, acta_completa):
     repo.guardar(acta_completa, b"pdf", "Acta_2026-00051.pdf")
     ws = _hoja(repo)
-    col = [c for c in range(1, ws.max_column + 1) if ws.cell(2, c).value == "Archivo PDF"][0]
+    col = [c for c in range(1, ws.max_column + 1) if ws.cell(2, c).value == "PDF original"][0]
     celda = ws.cell(3, col)
     assert celda.value == "Acta_2026-00051.pdf"
     assert celda.hyperlink.target == "pdfs/Acta_2026-00051.pdf"
@@ -97,7 +97,7 @@ def test_releer_y_agregar_conserva_los_datos_anteriores(repo, acta_completa):
     primera = _fila(ws, 1)
     assert (primera["Artículo 2 - Código"], primera["Artículo 2 - Cantidad"]) == ("B-2", 1)
     assert ws.cell(3, [c for c in range(1, ws.max_column + 1)
-                       if ws.cell(2, c).value == "Archivo PDF"][0]).hyperlink.target == "pdfs/1.pdf"
+                       if ws.cell(2, c).value == "PDF original"][0]).hyperlink.target == "pdfs/1.pdf"
     df = repo.leer_actas()
     assert list(df["N° de Acta"]) == ["2026-00051", "2026-00052"]
 
@@ -149,3 +149,86 @@ def test_vista_previa_muestra_un_item_por_columna(acta_completa):
     fila = fila_plana(registro_desde_acta(acta_completa))
     assert fila["Antecedente 1"] == "Ruido en bomba"
     assert fila["Artículo 1 - Descripción"] == "Sello de pistón"
+
+
+# ---------- Corrección de actas ----------
+def _col(ws, nombre):
+    return [c for c in range(1, ws.max_column + 1) if ws.cell(2, c).value == nombre][0]
+
+
+def test_corregir_actualiza_la_fila_y_conserva_los_dos_pdfs(repo, acta_completa):
+    repo.guardar(acta_completa, b"%PDF original", "Acta_2026-00051.pdf")
+    acta_completa.numero = "2026-00052"
+    acta_completa.fecha_registro = None
+    repo.guardar(acta_completa, b"%PDF", "Acta_2026-00052.pdf")
+
+    acta = repo.obtener("2026-00051")
+    assert acta.firma_cliente_png  # las firmas se recuperan para la corrección
+    acta.cliente = "Hospital Rebagliati (corregido)"
+    acta.antecedentes = ["Ruido en bomba", "Se agregó este punto"]
+    acta.revision, acta.corregido_por, acta.motivo_correccion = 1, "Ana Ruiz", "Cliente mal escrito"
+    acta.fecha_correccion = datetime(2026, 9, 25, 10, 0)
+    resultado = repo.corregir(acta, b"%PDF rev1", "Acta_2026-00051_Rev1.pdf")
+
+    assert resultado.total_actas == 2  # no se crea una fila nueva
+    ws = _hoja(repo)
+    fila = _fila(ws, 1)
+    assert fila["N° de Acta"] == "2026-00051"  # mantiene su lugar
+    assert fila["Cliente"] == "Hospital Rebagliati (corregido)"
+    assert fila["Antecedente 2"] == "Se agregó este punto"
+    assert (fila["Revisión"], fila["Corregido por"]) == (1, "Ana Ruiz")
+    assert fila["PDF original"] == "Acta_2026-00051.pdf"
+    assert fila["PDF corregido"] == "Acta_2026-00051_Rev1.pdf"
+    assert ws.cell(3, _col(ws, "PDF original")).hyperlink.target == "pdfs/Acta_2026-00051.pdf"
+    assert ws.cell(3, _col(ws, "PDF corregido")).hyperlink.target == "pdfs/Acta_2026-00051_Rev1.pdf"
+    # Ambos PDF existen.
+    assert (repo.dir_pdf / "Acta_2026-00051.pdf").read_bytes() == b"%PDF original"
+    assert (repo.dir_pdf / "Acta_2026-00051_Rev1.pdf").read_bytes() == b"%PDF rev1"
+    assert _fila(ws, 2)["N° de Acta"] == "2026-00052"
+
+
+def test_segunda_correccion_mantiene_el_original_y_enlaza_la_ultima(repo, acta_completa):
+    repo.guardar(acta_completa, b"%PDF", "Acta_2026-00051.pdf")
+    for rev in (1, 2):
+        acta = repo.obtener("2026-00051")
+        assert acta.revision == rev - 1
+        acta.revision, acta.motivo_correccion, acta.corregido_por = rev, f"motivo {rev}", "X"
+        repo.corregir(acta, b"%PDF", f"Acta_2026-00051_Rev{rev}.pdf")
+
+    fila = _fila(_hoja(repo), 1)
+    assert (fila["PDF original"], fila["PDF corregido"]) == ("Acta_2026-00051.pdf", "Acta_2026-00051_Rev2.pdf")
+    assert fila["Motivo de corrección"] == "motivo 2"
+    assert (repo.dir_pdf / "Acta_2026-00051_Rev1.pdf").exists()  # las revisiones previas no se borran
+
+
+def test_corregir_con_revision_desactualizada_falla(repo, acta_completa):
+    from acta_app.storage import AlmacenamientoError
+
+    repo.guardar(acta_completa, b"%PDF", "a.pdf")
+    acta = repo.obtener("2026-00051")
+    acta.revision = 3
+    with pytest.raises(AlmacenamientoError):
+        repo.corregir(acta, b"%PDF", "b.pdf")
+
+
+def test_obtener_reconstruye_el_acta_guardada(repo, acta_completa):
+    acta_completa.tipo_servicio, acta_completa.tipo_servicio_otro = "Otro", "Calibración"
+    acta_completa.articulos = [Articulo("A-1", "Filtro", 2)]
+    repo.guardar(acta_completa, b"%PDF", "a.pdf")
+    acta = repo.obtener(" 2026-00051 ")
+    assert (acta.tipo_servicio, acta.tipo_servicio_otro) == ("Otro", "Calibración")
+    assert acta.fecha == acta_completa.fecha and acta.hora_fin_trabajo == time(13, 30)
+    assert acta.antecedentes == acta_completa.antecedentes
+    assert [(a.codigo, a.cantidad) for a in acta.articulos] == [("A-1", 2)]
+    assert acta.nombre_representante == "Ana Ruiz" and acta.revision == 0
+    assert repo.numeros() == ["2026-00051"]
+
+
+def test_excel_con_columna_archivo_pdf_se_sigue_leyendo(repo, acta_completa):
+    repo.guardar(acta_completa, b"%PDF", "Acta_2026-00051.pdf")
+    wb = load_workbook(repo.ruta_excel)
+    ws = wb["Actas"]
+    ws.cell(2, _col(ws, "PDF original")).value = "Archivo PDF"  # encabezado de la v0.6
+    wb.save(repo.ruta_excel)
+    registro_pdf = repo.obtener("2026-00051")  # no falla
+    assert registro_pdf.numero == "2026-00051"

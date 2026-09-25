@@ -16,7 +16,8 @@ SISA-APP-01/
 ├── catalogos/                 # Inventario de equipos y clientes para el autocompletado
 ├── data/                      # Salida generada (ignorada por git)
 │   ├── actas_maestro.xlsx     #   Excel maestro: hojas "Actas" y "Artículos"
-│   └── pdfs/                  #   PDF de cada acta
+│   ├── pdfs/                  #   PDF de cada acta (original y revisiones)
+│   └── firmas/                #   Firmas en PNG, para reutilizarlas al corregir
 └── acta_app/
     ├── config.py              # Constantes, rutas y versión desplegada (commit de git)
     ├── catalogo.py            # Autocompletado: opciones filtradas y campos determinados
@@ -47,9 +48,13 @@ sobre ese objeto sin depender de Streamlit.
     bajo un encabezado combinado ("Antecedentes Iniciales"). Cada grupo tiene tantas
     columnas como el acta con más ítems; se amplía solo al guardar.
   - "Fecha", horas y "Fecha de registro" son fechas/horas reales de Excel (hora de Perú).
-  - "Archivo PDF" es un enlace al PDF del acta.
+  - "PDF original" y "PDF corregido" son enlaces a los PDF del acta.
 - Hoja **Artículos**: una fila por artículo empleado, enlazada por "N° de Acta".
 - No se permite guardar dos actas con el mismo N.°.
+- **Corregir un acta** (selector en la parte superior de la app): se carga el acta, se
+  corrige y se indica motivo y responsable. La fila del Excel se actualiza (no se duplica),
+  el PDF original se conserva y se genera `Acta_<N°>_Rev1.pdf`, `_Rev2`, … marcado como
+  revisión. Las firmas originales se pueden conservar o volver a tomar.
 - La estructura de columnas está en `acta_app/storage/esquema.py`.
 
 > En Streamlit Community Cloud el disco no es permanente: descarga "Excel + PDFs (ZIP)"

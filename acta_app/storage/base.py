@@ -14,6 +14,10 @@ class ActaDuplicadaError(Exception):
     """Ya existe un acta registrada con el mismo número."""
 
 
+class ActaNoEncontradaError(Exception):
+    """No hay ningún acta registrada con ese número."""
+
+
 class AlmacenamientoError(Exception):
     """No se pudo escribir en el almacenamiento (archivo bloqueado, sin conexión, etc.)."""
 
@@ -30,6 +34,17 @@ class RepositorioActas(Protocol):
     def guardar(self, acta: Acta, pdf: bytes, nombre_pdf: str) -> ResultadoGuardado:
         """Guarda el PDF y agrega el acta como fila nueva. Lanza ActaDuplicadaError o
         AlmacenamientoError si no se pudo."""
+        ...
+
+    def corregir(self, acta: Acta, pdf: bytes, nombre_pdf: str) -> ResultadoGuardado:
+        """Actualiza la fila del acta (acta.revision = revisión anterior + 1) y enlaza el
+        nuevo PDF, conservando el original."""
+        ...
+
+    def numeros(self) -> list[str]: ...
+
+    def obtener(self, numero: str) -> Acta:
+        """Acta guardada, con sus firmas. Lanza ActaNoEncontradaError."""
         ...
 
     def leer_actas(self) -> pd.DataFrame: ...

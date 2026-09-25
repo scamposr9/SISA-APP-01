@@ -18,13 +18,19 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date, datetime, time
 
-from acta_app.models import Acta
+from acta_app import config
+from acta_app.models import Acta, Articulo
 
 FORMATO_FECHA = "dd/mm/yyyy"
 FORMATO_FECHA_HORA = "dd/mm/yyyy hh:mm:ss AM/PM"
 FORMATO_HORA = "hh:mm AM/PM"
 
-COLUMNA_PDF = "Archivo PDF"
+# El PDF inicial nunca se reemplaza; una corrección agrega su propio PDF (Rev1, Rev2, ...).
+COLUMNA_PDF_ORIGINAL = "PDF original"
+COLUMNA_PDF_CORREGIDO = "PDF corregido"
+COLUMNAS_PDF = (COLUMNA_PDF_ORIGINAL, COLUMNA_PDF_CORREGIDO)
+# Encabezados de versiones anteriores del Excel que siguen reconociéndose.
+ALIAS_ENCABEZADOS = {"Archivo PDF": COLUMNA_PDF_ORIGINAL}
 
 
 @dataclass(frozen=True)
@@ -103,7 +109,13 @@ ESQUEMA: list[Campo | Grupo] = [
         ancho=12,
     ),
     Campo("Fecha de registro", lambda a: a.fecha_registro, FORMATO_FECHA_HORA, ancho=22),
-    Campo(COLUMNA_PDF, lambda a: "", ancho=26),
+    Campo("Revisión", lambda a: a.revision, ancho=10),
+    Campo("Fecha de corrección", lambda a: a.fecha_correccion, FORMATO_FECHA_HORA, ancho=22),
+    Campo("Corregido por", lambda a: a.corregido_por, ancho=22),
+    Campo("Motivo de corrección", lambda a: a.motivo_correccion, ancho=40, texto_largo=True),
+    # Los nombres y enlaces de los PDF los asigna el repositorio al guardar.
+    Campo(COLUMNA_PDF_ORIGINAL, lambda a: None, ancho=26),
+    Campo(COLUMNA_PDF_CORREGIDO, lambda a: None, ancho=30),
 ]
 
 CAMPOS = {c.nombre: c for c in ESQUEMA if isinstance(c, Campo)}
@@ -114,22 +126,91 @@ GRUPOS = [g for g in ESQUEMA if isinstance(g, Grupo)]
 class Registro:
     valores: dict[str, object] = field(default_factory=dict)  # Campo -> valor
     items: dict[str, list[tuple]] = field(default_factory=dict)  # Grupo -> ítems
-    enlace_pdf: str | None = None
+    enlaces: dict[str, str] = field(default_factory=dict)  # Campo -> hipervínculo
 
     @property
     def numero(self) -> str:
         return str(self.valores.get("N° de Acta") or "")
 
 
-def registro_desde_acta(acta: Acta, archivo_pdf: str = "", enlace_pdf: str | None = None) -> Registro:
-    registro = Registro(enlace_pdf=enlace_pdf)
+    def poner_pdf(self, columna: str, nombre: str, enlace: str | None) -> None:
+        self.valores[columna] = nombre
+        if enlace:
+            self.enlaces[columna] = enlace
+
+
+def registro_desde_acta(acta: Acta) -> Registro:
+    registro = Registro()
     for bloque in ESQUEMA:
         if isinstance(bloque, Campo):
             registro.valores[bloque.nombre] = bloque.valor(acta)
         else:
             registro.items[bloque.titulo] = bloque.items(acta)
-    registro.valores[COLUMNA_PDF] = archivo_pdf
     return registro
+
+
+def acta_desde_registro(registro: Registro) -> Acta:
+    """Reconstruye el acta guardada (sin firmas) para cargarla en el formulario."""
+    v = registro.valores
+
+    def texto(nombre: str) -> str:
+        return "" if v.get(nombre) is None else str(v[nombre]).strip()
+
+    def lista(titulo: str) -> list[str]:
+        return [str(item[0]).strip() for item in registro.items.get(titulo, []) if item[0]]
+
+    tipo = texto("Tipo de Servicio")
+    tipo_otro = ""
+    if tipo.startswith(config.TIPO_SERVICIO_OTRO):
+        tipo, _, tipo_otro = tipo.partition(":")
+        tipo, tipo_otro = config.TIPO_SERVICIO_OTRO, tipo_otro.strip()
+
+    return Acta(
+        numero=texto("N° de Acta"),
+        fecha=_a_fecha(v.get("Fecha")),
+        cliente=texto("Cliente"),
+        ubicacion=texto("Ubicación"),
+        equipo=texto("Equipo"),
+        marca=texto("Marca"),
+        modelo=texto("Modelo"),
+        numero_serie=texto("N° Serie"),
+        tipo_servicio=tipo or None,
+        tipo_servicio_otro=tipo_otro,
+        antecedentes=lista("Antecedentes Iniciales"),
+        hora_inicio_trabajo=_a_hora(v.get("Hora Inicio Trabajo")),
+        hora_fin_trabajo=_a_hora(v.get("Hora Fin Trabajo")),
+        acciones=lista("Acciones Realizadas"),
+        diagnostico=lista("Detalle del Diagnóstico"),
+        estado_final=texto("Estado Final del Servicio") or None,
+        articulos=[
+            Articulo(
+                codigo="" if c is None else str(c).strip(),
+                descripcion="" if d is None else str(d).strip(),
+                cantidad=None if q in (None, "") else int(q),
+            )
+            for c, d, q in registro.items.get("Artículos Empleados", [])
+        ],
+        observaciones=lista("Observaciones y/o Recomendaciones"),
+        nombre_cliente=texto("Nombre Cliente"),
+        nombre_representante=texto("Nombre Representante Sistemas Analíticos"),
+        fecha_registro=v.get("Fecha de registro") if isinstance(v.get("Fecha de registro"), datetime) else None,
+        revision=int(v.get("Revisión") or 0),
+        fecha_correccion=v.get("Fecha de corrección") if isinstance(v.get("Fecha de corrección"), datetime) else None,
+        corregido_por=texto("Corregido por"),
+        motivo_correccion=texto("Motivo de corrección"),
+    )
+
+
+def _a_fecha(valor: object) -> date | None:
+    if isinstance(valor, datetime):
+        return valor.date()
+    return valor if isinstance(valor, date) else None
+
+
+def _a_hora(valor: object) -> time | None:
+    if isinstance(valor, datetime):
+        return valor.time()
+    return valor if isinstance(valor, time) else None
 
 
 # ---------- Disposición de columnas ----------
@@ -185,7 +266,7 @@ def interpretar_encabezados(encabezados: list[str]) -> list[Columna | None]:
     """Reconoce las columnas de una hoja ya escrita (None = columna desconocida)."""
     resultado: list[Columna | None] = []
     for encabezado in encabezados:
-        encabezado = str(encabezado or "")
+        encabezado = ALIAS_ENCABEZADOS.get(str(encabezado or ""), str(encabezado or ""))
         columna = None
         if encabezado in CAMPOS:
             columna = Columna(encabezado, CAMPOS[encabezado])

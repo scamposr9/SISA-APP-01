@@ -10,6 +10,8 @@ from acta_app.ui.components import (
     etiqueta,
     firma,
     lista_dinamica,
+    precargar_articulos,
+    precargar_lista,
     seccion,
     tabla_articulos,
 )
@@ -35,6 +37,55 @@ def limpiar_formulario() -> None:
     for clave in [c for c in st.session_state if str(c).startswith(prefijo)]:
         del st.session_state[clave]
     st.session_state[FORM_ID] = st.session_state.get(FORM_ID, 0) + 1
+
+
+# ---------- Corrección de actas ----------
+CORRECCION = "correccion"  # acta cargada para corregir (st.session_state)
+USAR_FIRMAS_ORIGINALES = "usar_firmas_originales"
+
+
+def cargar_en_formulario(acta: Acta) -> None:
+    """Llena el formulario con un acta guardada para corregirla (usar desde un callback,
+    antes de que se dibujen los widgets)."""
+    limpiar_formulario()
+    st.session_state[CORRECCION] = acta
+    st.session_state[USAR_FIRMAS_ORIGINALES] = True
+    valores = {
+        "acta_numero": acta.numero,
+        "fecha": acta.fecha or hoy(),
+        "ubicacion": acta.ubicacion,
+        "cliente": acta.cliente,
+        "equipo": acta.equipo or None,
+        "marca": acta.marca or None,
+        "modelo": acta.modelo or None,
+        "serie": acta.numero_serie or None,
+        "tipo_servicio": acta.tipo_servicio,
+        "tipo_servicio_otro": acta.tipo_servicio_otro,
+        "hora_inicio_trabajo": acta.hora_inicio_trabajo,
+        "hora_fin_trabajo": acta.hora_fin_trabajo,
+        "estado_final": acta.estado_final,
+        "nombre_cliente": acta.nombre_cliente,
+        "nombre_representante": acta.nombre_representante,
+    }
+    for nombre, valor in valores.items():
+        st.session_state[k(nombre)] = valor
+    for nombre, puntos in (
+        ("antecedentes", acta.antecedentes),
+        ("acciones", acta.acciones),
+        ("diagnostico", acta.diagnostico),
+        ("observaciones", acta.observaciones),
+    ):
+        precargar_lista(k(nombre), puntos)
+    precargar_articulos(k("articulos"), acta.articulos)
+
+
+def salir_de_correccion() -> None:
+    st.session_state.pop(CORRECCION, None)
+    limpiar_formulario()
+
+
+def acta_en_correccion() -> Acta | None:
+    return st.session_state.get(CORRECCION)
 
 
 # ---------- Autocompletado ----------
@@ -75,19 +126,28 @@ def _limpiar_otro() -> None:
 
 
 def formulario_acta() -> Acta:
+    """Dibuja el formulario. Si hay un acta cargada para corregir, el N.° no se puede
+    cambiar y se pueden conservar sus firmas originales."""
+    original = acta_en_correccion()
     acta = Acta()
 
     # ---------- N.° de acta ----------
     col_label, col_num, _ = st.columns([1, 1.2, 1])
     col_label.markdown('<div class="acta-number-label">N.°</div>', unsafe_allow_html=True)
     acta.numero = col_num.text_input(
-        "N.° de Acta", key=k("acta_numero"), placeholder="2026-00051", label_visibility="collapsed"
+        "N.° de Acta",
+        key=k("acta_numero"),
+        placeholder="2026-00051",
+        label_visibility="collapsed",
+        disabled=original is not None,
     ).strip()
 
     # ---------- Datos generales ----------
     with seccion("datos", "Datos generales", obligatorio=False):
         c1, c2 = st.columns(2)
-        acta.fecha = c1.date_input(etiqueta("Fecha"), value=hoy(), format="DD/MM/YYYY", key=k("fecha"))
+        # La fecha de hoy es el valor inicial, salvo que el acta se haya cargado para corregir.
+        st.session_state.setdefault(k("fecha"), hoy())
+        acta.fecha = c1.date_input(etiqueta("Fecha"), format="DD/MM/YYYY", key=k("fecha"))
         acta.ubicacion = c2.text_input(etiqueta("Ubicación"), key=k("ubicacion")).strip()
         c1, c2 = st.columns(2)
         acta.cliente = c1.text_input(etiqueta("Cliente"), key=k("cliente")).strip()
@@ -179,14 +239,34 @@ def formulario_acta() -> Acta:
 
     # ---------- Conformidad (firmas) ----------
     with seccion("firmas", "Conformidad"):
+        conservar = original is not None and st.checkbox(
+            "Conservar las firmas del acta original",
+            key=USAR_FIRMAS_ORIGINALES,
+            help="Desmarca para que el cliente y el representante vuelvan a firmar la corrección.",
+        )
         c1, c2 = st.columns(2, gap="large")
         with c1:
-            acta.firma_cliente_png = firma(k("firma_cliente"), "Cliente")
+            if conservar:
+                acta.firma_cliente_png = _firma_original(original.firma_cliente_png, "Cliente")
+            else:
+                acta.firma_cliente_png = firma(k("firma_cliente"), "Cliente")
             acta.nombre_cliente = st.text_input(etiqueta("Nombre del cliente"), key=k("nombre_cliente")).strip()
         with c2:
-            acta.firma_representante_png = firma(k("firma_representante"), config.EMPRESA)
+            if conservar:
+                acta.firma_representante_png = _firma_original(original.firma_representante_png, config.EMPRESA)
+            else:
+                acta.firma_representante_png = firma(k("firma_representante"), config.EMPRESA)
             acta.nombre_representante = st.text_input(
                 etiqueta("Nombre del representante"), key=k("nombre_representante")
             ).strip()
 
     return acta
+
+
+def _firma_original(png: bytes | None, rotulo: str) -> bytes | None:
+    if png:
+        st.image(png, width=380)
+    else:
+        st.warning("No se encontró la firma original; desmarca la casilla para firmar de nuevo.")
+    st.markdown(f'<div class="sign-label">{rotulo}</div>', unsafe_allow_html=True)
+    return png

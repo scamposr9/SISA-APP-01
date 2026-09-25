@@ -20,7 +20,7 @@ from openpyxl.worksheet.worksheet import Worksheet
 
 from acta_app import config
 from acta_app.storage.esquema import (
-    COLUMNA_PDF,
+    COLUMNAS_PDF,
     FORMATO_FECHA,
     GRUPOS,
     Campo,
@@ -66,8 +66,8 @@ def leer_registros(ws: Worksheet) -> list[Registro]:
                 continue
             if isinstance(columna.bloque, Campo):
                 registro.valores[columna.bloque.nombre] = celda.value
-                if columna.bloque.nombre == COLUMNA_PDF and celda.hyperlink is not None:
-                    registro.enlace_pdf = celda.hyperlink.target
+                if columna.bloque.nombre in COLUMNAS_PDF and celda.hyperlink is not None:
+                    registro.enlaces[columna.bloque.nombre] = celda.hyperlink.target
             else:
                 item = items[columna.bloque.titulo].setdefault(
                     columna.item, [None] * columna.bloque.columnas_por_item
@@ -96,8 +96,9 @@ def construir_libro(registros: list[Registro]) -> Workbook:
             celda.alignment = Alignment(vertical="top", wrap_text=columna.texto_largo)
             if columna.formato:
                 celda.number_format = columna.formato
-            if columna.encabezado == COLUMNA_PDF and registro.enlace_pdf:
-                celda.hyperlink = registro.enlace_pdf
+            enlace = registro.enlaces.get(columna.encabezado)
+            if enlace:
+                celda.hyperlink = enlace
                 celda.font = _FONT_ENLACE
     _tabla(ws, TABLA_ACTAS, len(columnas), FILA_ENCABEZADO, len(registros))
     ws.freeze_panes = ws.cell(FILA_ENCABEZADO + 1, 2)
