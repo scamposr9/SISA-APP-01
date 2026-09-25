@@ -53,8 +53,8 @@ def cargar_en_formulario(acta: Acta) -> None:
     valores = {
         "acta_numero": acta.numero,
         "fecha": acta.fecha or hoy(),
-        "ubicacion": acta.ubicacion,
-        "cliente": acta.cliente,
+        "ubicacion": acta.ubicacion if not _usa_desplegable("ubicacion") else acta.ubicacion or None,
+        "cliente": acta.cliente if not _usa_desplegable("cliente") else acta.cliente or None,
         "equipo": acta.equipo or None,
         "marca": acta.marca or None,
         "modelo": acta.modelo or None,
@@ -89,8 +89,7 @@ def acta_en_correccion() -> Acta | None:
 
 
 # ---------- Autocompletado ----------
-# Cliente y Ubicación se escriben a mano hasta tener la lista oficial de clientes.
-CAMPOS_CATALOGO = ["equipo", "marca", "modelo", "serie"]
+CAMPOS_CATALOGO = ["cliente", "ubicacion", "equipo", "marca", "modelo", "serie"]
 
 
 def _seleccion() -> dict[str, str]:
@@ -99,15 +98,23 @@ def _seleccion() -> dict[str, str]:
 
 def _autocompletar() -> None:
     """Al elegir un valor, completa los campos vacíos que quedan determinados
-    (p. ej. una serie única define equipo, marca y modelo). Si hay varias coincidencias
-    no se completa nada: decide el ingeniero con el desplegable."""
+    (p. ej. una serie única define equipo, marca, modelo, cliente y ubicación; un cliente,
+    su ubicación). Si hay varias coincidencias no se completa nada: decide el ingeniero."""
     for campo, valor in cargar_catalogo().autocompletar(_seleccion()).items():
         st.session_state[k(campo)] = valor
+
+
+def _usa_desplegable(campo: str) -> bool:
+    """Cliente y Ubicación son desplegables solo si el Excel trae sedes/departamentos;
+    si no, se escriben a mano."""
+    return campo not in ("cliente", "ubicacion") or cargar_catalogo().tiene(campo)
 
 
 def _campo_catalogo(contenedor, texto: str, campo: str) -> str:
     """Desplegable con búsqueda: al escribir 'analiz' sugiere 'Analizador Bioquimico', etc.
     Acepta valores nuevos que no estén en el catálogo."""
+    if not _usa_desplegable(campo):
+        return contenedor.text_input(etiqueta(texto), key=k(campo)).strip()
     valor = contenedor.selectbox(
         etiqueta(texto),
         cargar_catalogo().opciones(campo, _seleccion()),
@@ -148,9 +155,9 @@ def formulario_acta() -> Acta:
         # La fecha de hoy es el valor inicial, salvo que el acta se haya cargado para corregir.
         st.session_state.setdefault(k("fecha"), hoy())
         acta.fecha = c1.date_input(etiqueta("Fecha"), format="DD/MM/YYYY", key=k("fecha"))
-        acta.ubicacion = c2.text_input(etiqueta("Ubicación"), key=k("ubicacion")).strip()
+        acta.ubicacion = _campo_catalogo(c2, "Ubicación", "ubicacion")
         c1, c2 = st.columns(2)
-        acta.cliente = c1.text_input(etiqueta("Cliente"), key=k("cliente")).strip()
+        acta.cliente = _campo_catalogo(c1, "Cliente", "cliente")
         acta.equipo = _campo_catalogo(c2, "Equipo", "equipo")
         c1, c2 = st.columns(2)
         acta.marca = _campo_catalogo(c1, "Marca", "marca")

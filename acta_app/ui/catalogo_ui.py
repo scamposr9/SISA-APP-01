@@ -17,9 +17,7 @@ def _cargar(firma: float) -> Catalogo:
     # `firma` (fecha de modificación) solo sirve como clave de la caché; no debe llevar
     # "_" delante, porque Streamlit no usa esos parámetros para la clave.
     del firma
-    # Por ahora solo equipos: Cliente y Ubicación se escriben a mano hasta tener la lista
-    # oficial (Catalogo ya admite clientes para cuando esté en SharePoint).
-    return Catalogo.desde_fuentes(config.CATALOGO_EQUIPOS_PATH)
+    return Catalogo.desde_excel(config.CATALOGO_EQUIPOS_PATH)
 
 
 def cargar_catalogo() -> Catalogo:

@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 
 # Versión visible al pie de la app. Además se muestra el commit de GitHub desplegado
 # (ver version_desplegada), que cambia solo con cada actualización.
-APP_VERSION = "0.10.1"
+APP_VERSION = "0.11"
 
 # El servidor (p. ej. Streamlit Cloud) corre en UTC; fechas y horas se toman en hora de Perú.
 ZONA_HORARIA = ZoneInfo("America/Lima")
@@ -21,10 +21,10 @@ PDF_DIR = DATA_DIR / "pdfs"
 LOGO_PATH = ASSETS_DIR / "logo.png"
 EXCEL_MAESTRO_PATH = DATA_DIR / "actas_maestro.xlsx"
 
-# Catálogos para el autocompletado (ver acta_app/catalogo.py).
+# Catálogo para el autocompletado (ver acta_app/catalogo.py): equipos, sedes (clientes) y
+# departamentos (ubicación). Con SharePoint se leerá de «Equipos.xlsx» en la carpeta Actas.
 CATALOGOS_DIR = BASE_DIR / "catalogos"
 CATALOGO_EQUIPOS_PATH = CATALOGOS_DIR / "equipos.xlsx"
-CATALOGO_CLIENTES_PATH = CATALOGOS_DIR / "clientes.xlsx"
 
 # ---------- SharePoint (pendiente de activar: faltan los permisos de TI) ----------
 # Destino acordado. Las claves de acceso (tenant, client id, client secret) NO van aquí:
@@ -34,6 +34,7 @@ SHAREPOINT_BIBLIOTECA = "Documentos compartidos"
 SHAREPOINT_CARPETA = "16. Analisis de Datos/Actas"
 SHAREPOINT_CARPETA_PDF = "PDF"  # subcarpeta dentro de SHAREPOINT_CARPETA
 SHAREPOINT_EXCEL = "Actas.xlsx"  # lo crea la app la primera vez que guarde un acta
+SHAREPOINT_EQUIPOS = "Equipos.xlsx"  # catálogo para el autocompletado
 
 # ---------- Metadatos del formato físico ----------
 SISTEMA = "SISTEMA INTEGRADO DE GESTIÓN"

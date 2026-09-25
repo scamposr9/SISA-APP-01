@@ -86,3 +86,19 @@ def test_pdf_de_revision_indica_la_correccion(acta_completa):
     assert "REVISIÓN 1" in texto
     assert "Motivo: Se corrigió el número de serie" in texto
     assert nombre_archivo_pdf(acta_completa) == "Acta_2026-00051_Rev1.pdf"
+
+
+def test_pdf_muestra_la_fecha_y_solo_las_opciones_marcadas(acta_completa):
+    acta_completa.tipo_servicio = "Mant. Correctivo"
+    acta_completa.estado_final = "En Observación"
+    texto = _texto(generar_pdf(acta_completa))
+    assert "Fecha:" in texto and "24/09/2026" in texto
+    assert "Mant. Correctivo" in texto and "En Observación" in texto
+    for no_marcada in ["Mant. Preventivo", "Otro", "Operativo", "Inoperativo"]:
+        assert no_marcada not in texto, no_marcada
+
+
+def test_tipo_otro_muestra_su_especificacion(acta_completa):
+    acta_completa.tipo_servicio, acta_completa.tipo_servicio_otro = "Otro", "Calibración anual"
+    texto = _texto(generar_pdf(acta_completa))
+    assert "Otro: Calibración anual" in texto and "Mant. Preventivo" not in texto

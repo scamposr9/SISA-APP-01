@@ -186,7 +186,18 @@ def _numero_acta(lz: _Lienzo, acta: Acta) -> None:
         lz.fuente(BOLD, 9.5, NAVY)
         lz.texto(PAGE_W / 2, lz.y + 5.5, f"REVISIÓN {acta.revision} — reemplaza a la versión anterior", align="center")
         lz.y += 5.5
-    lz.y += 10
+    lz.y += 7
+    _fecha(lz, acta)
+    lz.y += 7
+
+
+def _fecha(lz: _Lienzo, acta: Acta) -> None:
+    """«Fecha: ____» arriba a la izquierda, como en el acta física."""
+    lz.fuente(REGULAR, 9.5, INK)
+    lz.texto(MARGIN_X, lz.y, "Fecha:")
+    x_valor = MARGIN_X + 14
+    lz.texto(x_valor + 2, lz.y, formatear_fecha(acta.fecha) or "—")
+    lz.linea(x_valor, lz.y + 1.2, x_valor + 36, lz.y + 1.2, color=INK)
 
 
 def _nota_correccion(lz: _Lienzo, acta: Acta) -> None:
@@ -244,43 +255,28 @@ def _casilla(lz: _Lienzo, x: float, y: float, marcada: bool) -> None:
         lz.texto(x + 2, y - 0.1, "X", align="center")
 
 
-def _opciones(lz: _Lienzo, titulo: str, x_inicio: float, opciones: list[tuple[str, bool, float]]) -> None:
-    """Fila 'Título: [ ] Op1  [X] Op2 ...'; cada opción indica cuánto avanzar después."""
+def _opcion_marcada(lz: _Lienzo, titulo: str, x_inicio: float, rotulo: str) -> None:
+    """Fila 'Título: [X] Opción': solo se muestra la opción elegida, marcada con X."""
     lz.asegurar_espacio(10)
     lz.fuente(BOLD, 9.5, NAVY)
     lz.texto(MARGIN_X, lz.y, titulo)
     x = MARGIN_X + x_inicio
-    for rotulo, marcada, avance in opciones:
-        _casilla(lz, x, lz.y, marcada)
+    if not rotulo:
         lz.fuente(REGULAR, 9, INK)
-        lz.texto(x + 6, lz.y, rotulo)
-        x += avance
+        lz.texto(x, lz.y, "—")
+        return
+    _casilla(lz, x, lz.y, marcada=True)
+    lz.fuente(REGULAR, 9, INK)
+    lz.texto(x + 6, lz.y, rotulo)
 
 
 def _tipo_servicio(lz: _Lienzo, acta: Acta) -> None:
-    es_otro = acta.tipo_servicio == config.TIPO_SERVICIO_OTRO
-    rotulo_otro = "Otro" + (f": {acta.tipo_servicio_otro}" if es_otro and acta.tipo_servicio_otro else "")
-    _opciones(
-        lz,
-        "Tipo de servicio:",
-        34,
-        [
-            (config.TIPO_SERVICIO_PREVENTIVO, acta.tipo_servicio == config.TIPO_SERVICIO_PREVENTIVO, 42),
-            (config.TIPO_SERVICIO_CORRECTIVO, acta.tipo_servicio == config.TIPO_SERVICIO_CORRECTIVO, 42),
-            (rotulo_otro, es_otro, 0),
-        ],
-    )
+    _opcion_marcada(lz, "Tipo de servicio:", 34, acta.tipo_servicio_texto)
     lz.y += 9
 
 
 def _estado_final(lz: _Lienzo, acta: Acta) -> None:
-    avances = [32, 34, 0]
-    _opciones(
-        lz,
-        "Estado final del servicio:",
-        52,
-        [(e, acta.estado_final == e, a) for e, a in zip(config.ESTADOS_FINALES, avances)],
-    )
+    _opcion_marcada(lz, "Estado final del servicio:", 52, acta.estado_final or "")
     lz.y += 10
 
 
