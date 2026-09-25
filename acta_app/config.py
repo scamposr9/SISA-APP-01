@@ -26,6 +26,15 @@ CATALOGOS_DIR = BASE_DIR / "catalogos"
 CATALOGO_EQUIPOS_PATH = CATALOGOS_DIR / "equipos.xlsx"
 CATALOGO_CLIENTES_PATH = CATALOGOS_DIR / "clientes.xlsx"
 
+# ---------- SharePoint (pendiente de activar: faltan los permisos de TI) ----------
+# Destino acordado. Las claves de acceso (tenant, client id, client secret) NO van aquí:
+# se cargarán en los «Secrets» de Streamlit Cloud.
+SHAREPOINT_SITIO = "https://sistemasanaliticospe.sharepoint.com/sites/OperacionesyServicios"
+SHAREPOINT_BIBLIOTECA = "Documentos compartidos"
+SHAREPOINT_CARPETA = "16. Analisis de Datos/Actas"
+SHAREPOINT_CARPETA_PDF = "PDF"  # subcarpeta dentro de SHAREPOINT_CARPETA
+SHAREPOINT_EXCEL = "Actas.xlsx"  # lo crea la app la primera vez que guarde un acta
+
 # ---------- Metadatos del formato físico ----------
 SISTEMA = "SISTEMA INTEGRADO DE GESTIÓN"
 CODIGO_FORMATO = "FO-ING-02"
