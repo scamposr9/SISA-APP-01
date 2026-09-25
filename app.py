@@ -37,7 +37,9 @@ aplicar_estilos()
 @st.dialog("Vista previa de la fila (Excel)", width="large")
 def dialogo_fila(acta: Acta) -> None:
     # Mismas columnas que tendrá la fila en el Excel maestro (un ítem por columna).
-    fila = fila_plana(registro_desde_acta(acta, archivo_pdf="(se asigna al guardar)"))
+    registro = registro_desde_acta(acta)
+    registro.valores["PDF original"] = "(se asigna al guardar)"
+    fila = fila_plana(registro)
     texto = "\n".join(f"{k}: {formatear_valor(v) or '—'}" for k, v in fila.items())
     st.code(texto, language=None, wrap_lines=True)
 
@@ -175,7 +177,7 @@ def seccion_base_de_datos() -> None:
             width="stretch",
         )
         st.caption(
-            "En la columna «Archivo PDF» cada nombre es un enlace al PDF. Los enlaces funcionan "
+            "En las columnas «PDF original» y «PDF corregido» cada nombre es un enlace al PDF. Funcionan "
             "al descomprimir el ZIP (Excel y carpeta «pdfs» juntos). Con SharePoint, abrirán el "
             "PDF directamente en la biblioteca."
         )
