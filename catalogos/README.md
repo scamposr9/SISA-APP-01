@@ -12,4 +12,4 @@ La app lee estos archivos (si existen) para sugerir valores al escribir en el fo
 - Al reemplazar un archivo en GitHub, Streamlit Cloud se actualiza solo y la app vuelve a
   leerlo (la caché se invalida cuando cambia el archivo).
 
-> ⚠️ Si el repositorio es público, estos archivos quedan visibles para cualquiera.
+> ⚠️ El repositorio debe mantenerse privado: estos archivos contienen datos de la empresa.
