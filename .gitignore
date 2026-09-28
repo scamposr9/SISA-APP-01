@@ -13,3 +13,8 @@ data/firmas/
 # Claves locales de Streamlit: NUNCA subirlas a GitHub
 .streamlit/secrets.toml
 .streamlit/secrets.toml
+
+# Datos de la empresa: viven solo en SharePoint (Equipos.xlsx), nunca en GitHub
+catalogos/*.xlsx
+catalogos/*.xls
+catalogos/*.csv

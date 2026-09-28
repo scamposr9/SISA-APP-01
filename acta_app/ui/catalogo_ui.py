@@ -29,7 +29,8 @@ def _cargar_sharepoint() -> Catalogo | None:
 
 def cargar_catalogo() -> Catalogo:
     """Con SharePoint se lee Equipos.xlsx de la carpeta de actas (se refresca cada 5
-    minutos). Si no está allí, o no hay SharePoint, se usa el catálogo de la app."""
+    minutos). Sin SharePoint, solo si alguien dejó un catalogos/equipos.xlsx local (p. ej.
+    para pruebas en su computadora); los datos de la empresa no se guardan en GitHub."""
     if usa_sharepoint():
         try:
             catalogo = _cargar_sharepoint()

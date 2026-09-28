@@ -13,7 +13,7 @@ SISA-APP-01/
 ├── .streamlit/config.toml     # Tema (colores del prototipo)
 ├── assets/
 │   └── logo.png               # Logo extraído del prototipo HTML
-├── catalogos/                 # Inventario de equipos y clientes para el autocompletado
+├── catalogos/                 # Solo el README: los datos de equipos viven en SharePoint
 ├── data/                      # Salida generada (ignorada por git)
 │   ├── actas_maestro.xlsx     #   Excel maestro: hojas "Actas" y "Artículos"
 │   ├── pdfs/                  #   PDF de cada acta (original y revisiones)
@@ -79,7 +79,7 @@ client_secret = "<VALOR del client secret (no su ID)>"
   `Firmas/`. Los enlaces del Excel abren cada PDF en SharePoint.
 - Si otra persona guarda al mismo tiempo, la app lo detecta (eTag) y reintenta sin perder filas.
 - `Equipos.xlsx` en la misma carpeta alimenta el autocompletado (se relee cada 5 minutos o
-  con «Actualizar catálogo de equipos»). Si no está, se usa `catalogos/equipos.xlsx`.
+  con «Actualizar catálogo de equipos»). Los datos de la empresa no se guardan en GitHub.
 - «Conexión con SharePoint → Probar conexión», al final de la app, verifica acceso y escritura.
 - La app usa el permiso de aplicación **Sites.Selected**: TI debe asignarle escritura sobre el sitio.
 

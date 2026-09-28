@@ -224,7 +224,7 @@ class RepositorioSharePoint:
             bool(self.almacen.enlace(self.ruta_equipos)),
             "Equipos.xlsx encontrado (autocompletado desde SharePoint)."
             if self.almacen.enlace(self.ruta_equipos)
-            else "Equipos.xlsx no está en la carpeta: se usa el catálogo guardado en la app.",
+            else "Equipos.xlsx no está en la carpeta: el autocompletado de equipos queda vacío.",
         ))
         return pasos
 
