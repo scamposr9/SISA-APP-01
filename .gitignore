@@ -12,3 +12,4 @@ data/firmas/
 
 # Claves locales de Streamlit: NUNCA subirlas a GitHub
 .streamlit/secrets.toml
+.streamlit/secrets.toml
