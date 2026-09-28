@@ -195,9 +195,12 @@ def _fecha(lz: _Lienzo, acta: Acta) -> None:
     """«Fecha: ____» arriba a la izquierda, como en el acta física."""
     lz.fuente(REGULAR, 9.5, INK)
     lz.texto(MARGIN_X, lz.y, "Fecha:")
-    x_valor = MARGIN_X + 14
-    lz.texto(x_valor + 2, lz.y, formatear_fecha(acta.fecha) or "—")
-    lz.linea(x_valor, lz.y + 1.2, x_valor + 36, lz.y + 1.2, color=INK)
+    x_valor = MARGIN_X + 12
+    texto = formatear_fecha(acta.fecha) or "—"
+    lz.texto(x_valor + 1, lz.y, texto)
+    # La línea solo un poco más larga que la fecha.
+    largo = stringWidth(texto, REGULAR, 9.5) / mm + 2
+    lz.linea(x_valor, lz.y + 1.2, x_valor + largo, lz.y + 1.2, color=INK)
 
 
 def _nota_correccion(lz: _Lienzo, acta: Acta) -> None:
