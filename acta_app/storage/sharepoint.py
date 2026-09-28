@@ -394,8 +394,8 @@ class AlmacenGraph:
         if respuesta.status_code in (401, 403):
             raise AlmacenamientoError(
                 "SharePoint rechazó el acceso de la app (HTTP "
-                f"{respuesta.status_code}). Verifica que TI haya dado a «SISA Actas» permiso de "
-                "escritura sobre el sitio (Sites.Selected → asignación del sitio)."
+                f"{respuesta.status_code}). Verifica que TI haya dado a «{config.AZURE_APP_NOMBRE}» "
+                "permiso de escritura sobre el sitio (Sites.Selected → asignación del sitio)."
             )
         if respuesta.status_code >= 400:
             raise AlmacenamientoError(

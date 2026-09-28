@@ -29,6 +29,7 @@ CATALOGO_EQUIPOS_PATH = CATALOGOS_DIR / "equipos.xlsx"
 # ---------- SharePoint (se activa con la sección [sharepoint] de los Secrets) ----------
 # Destino acordado. Las claves de acceso (tenant, client id, client secret) NO van aquí:
 # se cargarán en los «Secrets» de Streamlit Cloud.
+AZURE_APP_NOMBRE = "SISA Actas Ingeniería"  # nombre de la app registrada en Entra ID
 SHAREPOINT_SITIO = "https://sistemasanaliticospe.sharepoint.com/sites/OperacionesyServicios"
 SHAREPOINT_BIBLIOTECA = "Documentos compartidos"
 SHAREPOINT_CARPETA = "16. Analisis de Datos/Actas"
