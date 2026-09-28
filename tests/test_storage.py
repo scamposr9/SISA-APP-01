@@ -3,6 +3,7 @@ import zipfile
 from datetime import datetime, time
 
 import pytest
+from acta_app.storage.excel_formato import formula_hipervinculo, leer_hipervinculo
 from openpyxl import Workbook, load_workbook
 
 from acta_app.models import Articulo
@@ -20,7 +21,13 @@ def _hoja(repo):
 
 def _fila(ws, n):
     """Encabezado (fila 2) -> valor de la fila de datos n (1 = primera acta)."""
-    return {ws.cell(2, c).value: ws.cell(2 + n, c).value for c in range(1, ws.max_column + 1)}
+    return {ws.cell(2, c).value: _texto(ws.cell(2 + n, c).value) for c in range(1, ws.max_column + 1)}
+
+
+def _texto(valor):
+    """Lo que se ve en la celda: el texto visible de una fórmula =HYPERLINK."""
+    enlace = leer_hipervinculo(valor)
+    return enlace[1] if enlace else valor
 
 
 def test_primera_acta_crea_el_excel(repo, acta_completa):
@@ -82,8 +89,8 @@ def test_archivo_pdf_es_un_enlace_al_pdf(repo, acta_completa):
     ws = _hoja(repo)
     col = [c for c in range(1, ws.max_column + 1) if ws.cell(2, c).value == "PDF original"][0]
     celda = ws.cell(3, col)
-    assert celda.value == "Acta_2026-00051.pdf"
-    assert celda.hyperlink.target == "pdfs/Acta_2026-00051.pdf"
+    assert leer_hipervinculo(celda.value) == ("pdfs/Acta_2026-00051.pdf", "Acta_2026-00051.pdf")
+    assert _enlace(celda) == "pdfs/Acta_2026-00051.pdf"
 
 
 def test_releer_y_agregar_conserva_los_datos_anteriores(repo, acta_completa):
@@ -96,8 +103,7 @@ def test_releer_y_agregar_conserva_los_datos_anteriores(repo, acta_completa):
     ws = _hoja(repo)
     primera = _fila(ws, 1)
     assert (primera["Artículo 2 - Código"], primera["Artículo 2 - Cantidad"]) == ("B-2", 1)
-    assert ws.cell(3, [c for c in range(1, ws.max_column + 1)
-                       if ws.cell(2, c).value == "PDF original"][0]).hyperlink.target == "pdfs/1.pdf"
+    assert _enlace(ws.cell(3, _col(ws, "PDF original"))) == "pdfs/1.pdf"
     df = repo.leer_actas()
     assert list(df["N° de Acta"]) == ["2026-00051", "2026-00052"]
 
@@ -179,8 +185,8 @@ def test_corregir_actualiza_la_fila_y_conserva_los_dos_pdfs(repo, acta_completa)
     assert (fila["Revisión"], fila["Corregido por"]) == (1, "Ana Ruiz")
     assert fila["PDF original"] == "Acta_2026-00051.pdf"
     assert fila["PDF corregido"] == "Acta_2026-00051_Rev1.pdf"
-    assert ws.cell(3, _col(ws, "PDF original")).hyperlink.target == "pdfs/Acta_2026-00051.pdf"
-    assert ws.cell(3, _col(ws, "PDF corregido")).hyperlink.target == "pdfs/Acta_2026-00051_Rev1.pdf"
+    assert _enlace(ws.cell(3, _col(ws, "PDF original"))) == "pdfs/Acta_2026-00051.pdf"
+    assert _enlace(ws.cell(3, _col(ws, "PDF corregido"))) == "pdfs/Acta_2026-00051_Rev1.pdf"
     # Ambos PDF existen.
     assert (repo.dir_pdf / "Acta_2026-00051.pdf").read_bytes() == b"%PDF original"
     assert (repo.dir_pdf / "Acta_2026-00051_Rev1.pdf").read_bytes() == b"%PDF rev1"
@@ -232,3 +238,16 @@ def test_excel_con_columna_archivo_pdf_se_sigue_leyendo(repo, acta_completa):
     wb.save(repo.ruta_excel)
     registro_pdf = repo.obtener("2026-00051")  # no falla
     assert registro_pdf.numero == "2026-00051"
+
+
+def _enlace(celda):
+    """URL de la fórmula =HYPERLINK que la app escribe en las columnas de PDF."""
+    return leer_hipervinculo(celda.value)[0]
+
+
+def test_enlace_hyperlink_ida_y_vuelta():
+    formula = formula_hipervinculo('https://sp/a "b".pdf', 'Acta "1".pdf')
+    assert formula == '=HYPERLINK("https://sp/a ""b"".pdf","Acta ""1"".pdf")'
+    assert leer_hipervinculo(formula) == ('https://sp/a "b".pdf', 'Acta "1".pdf')
+    assert formula_hipervinculo("https://sp/" + "x" * 300, "a.pdf") is None
+    assert leer_hipervinculo("Acta.pdf") is None

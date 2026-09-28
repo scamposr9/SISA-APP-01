@@ -90,7 +90,6 @@ ESQUEMA: list[Campo | Grupo] = [
     Campo("Hora Inicio Trabajo", lambda a: a.hora_inicio_trabajo, FORMATO_HORA, ancho=12),
     Campo("Hora Fin Trabajo", lambda a: a.hora_fin_trabajo, FORMATO_HORA, ancho=12),
     Grupo("Acciones Realizadas", "Acción", _textos(lambda a: a.acciones)),
-    Grupo("Detalle del Diagnóstico", "Diagnóstico", _textos(lambda a: a.diagnostico)),
     Campo("Estado Final del Servicio", lambda a: a.estado_final or "", ancho=18),
     Grupo(
         "Artículos Empleados",
@@ -180,7 +179,6 @@ def acta_desde_registro(registro: Registro) -> Acta:
         hora_inicio_trabajo=_a_hora(v.get("Hora Inicio Trabajo")),
         hora_fin_trabajo=_a_hora(v.get("Hora Fin Trabajo")),
         acciones=lista("Acciones Realizadas"),
-        diagnostico=lista("Detalle del Diagnóstico"),
         estado_final=texto("Estado Final del Servicio") or None,
         articulos=[
             Articulo(

@@ -5,6 +5,7 @@ import io
 from datetime import datetime
 
 import pytest
+from acta_app.storage.excel_formato import leer_hipervinculo
 from openpyxl import load_workbook
 
 from acta_app.models import Articulo
@@ -82,7 +83,7 @@ def test_primera_acta_crea_actas_xlsx_y_sube_pdf_y_firmas(repo, sp, acta_complet
     assert f"{CARPETA}/Firmas/2026-00051_cliente.png" in sp.archivos
     fila = _fila(sp)
     assert fila["N° de Acta"].value == "2026-00051"
-    assert fila["PDF original"].hyperlink.target == resultado.ubicacion_pdf
+    assert _enlace(fila["PDF original"]) == resultado.ubicacion_pdf
 
 
 def test_numero_repetido_no_se_guarda(repo, acta_completa):
@@ -126,8 +127,8 @@ def test_corregir_actualiza_la_fila_y_conserva_el_pdf_original(repo, sp, acta_co
     assert resultado.total_actas == 1
     fila = _fila(sp)
     assert fila["Cliente"].value == "Cliente corregido"
-    assert fila["PDF original"].hyperlink.target.endswith("/PDF/Acta_2026-00051.pdf")
-    assert fila["PDF corregido"].hyperlink.target.endswith("/PDF/Acta_2026-00051_Rev1.pdf")
+    assert _enlace(fila["PDF original"]).endswith("/PDF/Acta_2026-00051.pdf")
+    assert _enlace(fila["PDF corregido"]).endswith("/PDF/Acta_2026-00051_Rev1.pdf")
     assert sp.archivos[f"{CARPETA}/PDF/Acta_2026-00051.pdf"][0] == b"%PDF orig"
 
 
@@ -222,3 +223,8 @@ def test_tenant_invalido_da_un_error_claro_y_no_rompe_la_app():
     almacen = AlmacenGraph("tenant-que-no-existe", "c", "s", sesion=GraphFalso())
     with pytest.raises(AlmacenamientoError, match="tenant_id"):
         almacen.leer(f"{CARPETA}/Actas.xlsx")
+
+
+def _enlace(celda):
+    """URL de la fórmula =HYPERLINK que la app escribe en las columnas de PDF."""
+    return leer_hipervinculo(celda.value)[0]

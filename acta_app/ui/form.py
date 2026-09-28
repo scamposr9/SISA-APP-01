@@ -72,7 +72,6 @@ def cargar_en_formulario(acta: Acta) -> None:
     for nombre, puntos in (
         ("antecedentes", acta.antecedentes),
         ("acciones", acta.acciones),
-        ("diagnostico", acta.diagnostico),
         ("observaciones", acta.observaciones),
     ):
         precargar_lista(k(nombre), puntos)
@@ -211,12 +210,6 @@ def formulario_acta() -> Acta:
         "acciones", "Acciones realizadas", nota="(detalla cada parte verificada, corregida o probada)"
     ):
         acta.acciones = lista_dinamica(k("acciones"), "Ej: Se revisó el sistema de refrigeración...")
-
-    # ---------- Detalle del diagnóstico ----------
-    with seccion("diagnostico", "Detalle del diagnóstico"):
-        acta.diagnostico = lista_dinamica(
-            k("diagnostico"), "Ej: Se detectó desgaste en la correa principal..."
-        )
 
     # ---------- Estado final ----------
     with seccion("estado_final", "Estado final del servicio"):

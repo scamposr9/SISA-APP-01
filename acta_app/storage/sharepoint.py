@@ -264,7 +264,7 @@ class RepositorioSharePoint:
         return True
 
     def _subir(self, ruta: str, datos: bytes) -> str:
-        return self.almacen.escribir(ruta, datos)
+        return self.almacen.escribir(ruta, datos) or self.almacen.enlace(ruta) or ""
 
     def _ruta_firma(self, numero: str, quien: str) -> str:
         seguro = "".join(ch if ch.isalnum() or ch == "-" else "_" for ch in numero)

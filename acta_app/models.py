@@ -43,7 +43,6 @@ class Acta:
     hora_fin_trabajo: time | None = None
 
     acciones: list[str] = field(default_factory=list)
-    diagnostico: list[str] = field(default_factory=list)
 
     estado_final: str | None = None
 

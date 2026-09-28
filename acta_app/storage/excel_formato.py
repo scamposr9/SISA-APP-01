@@ -12,6 +12,8 @@ Hoja "Artículos": una fila por artículo empleado, enlazada por "N° de Acta".
 
 from __future__ import annotations
 
+import re
+
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
@@ -45,6 +47,29 @@ _FONT = Font(bold=True, color="FFFFFF")
 _BORDE = Border(left=Side(style="thin", color="FFFFFF"), right=Side(style="thin", color="FFFFFF"))
 _FONT_ENLACE = Font(color="0563C1", underline="single")
 
+# Los enlaces a los PDF se escriben como fórmula =HYPERLINK("url","nombre"): Excel para la
+# web (SharePoint) la abre con un clic, a diferencia del hipervínculo "de celda".
+_HIPERVINCULO = re.compile(r'^=HYPERLINK\("((?:[^"]|"")*)"\s*[,;]\s*"((?:[^"]|"")*)"\)$', re.IGNORECASE)
+_MAX_URL_HIPERVINCULO = 255  # límite de Excel para el primer argumento de HYPERLINK
+
+
+def formula_hipervinculo(enlace: str, texto: str) -> str | None:
+    """Fórmula HYPERLINK, o None si la URL supera el límite de Excel."""
+    if len(enlace) > _MAX_URL_HIPERVINCULO:
+        return None
+    def cadena(valor: str) -> str:
+        return '"' + valor.replace('"', '""') + '"'
+
+    return f"=HYPERLINK({cadena(enlace)},{cadena(texto)})"
+
+
+def leer_hipervinculo(valor: object) -> tuple[str, str] | None:
+    """(url, texto) de una fórmula HYPERLINK escrita por la app."""
+    coincidencia = _HIPERVINCULO.match(valor) if isinstance(valor, str) else None
+    if not coincidencia:
+        return None
+    return tuple(g.replace('""', '"') for g in coincidencia.groups())
+
 
 def es_formato_anterior(ws: Worksheet) -> bool:
     """Versión 0.5: encabezados en la fila 1 y textos unidos con ' | '."""
@@ -66,8 +91,12 @@ def leer_registros(ws: Worksheet) -> list[Registro]:
                 continue
             if isinstance(columna.bloque, Campo):
                 registro.valores[columna.bloque.nombre] = celda.value
-                if columna.bloque.nombre in COLUMNAS_PDF and celda.hyperlink is not None:
-                    registro.enlaces[columna.bloque.nombre] = celda.hyperlink.target
+                if columna.bloque.nombre in COLUMNAS_PDF:
+                    formula = leer_hipervinculo(celda.value)
+                    if formula:
+                        registro.poner_pdf(columna.bloque.nombre, formula[1], formula[0])
+                    elif celda.hyperlink is not None and celda.hyperlink.target:
+                        registro.enlaces[columna.bloque.nombre] = celda.hyperlink.target
             else:
                 item = items[columna.bloque.titulo].setdefault(
                     columna.item, [None] * columna.bloque.columnas_por_item
@@ -98,12 +127,17 @@ def construir_libro(registros: list[Registro]) -> Workbook:
                 celda.number_format = columna.formato
             enlace = registro.enlaces.get(columna.encabezado)
             if enlace:
-                celda.hyperlink = enlace
+                formula = formula_hipervinculo(enlace, str(celda.value or enlace))
+                if formula:
+                    celda.value = formula
+                else:
+                    celda.hyperlink = enlace
                 celda.font = _FONT_ENLACE
     _tabla(ws, TABLA_ACTAS, len(columnas), FILA_ENCABEZADO, len(registros))
     ws.freeze_panes = ws.cell(FILA_ENCABEZADO + 1, 2)
 
     _hoja_articulos(wb.create_sheet(HOJA_ARTICULOS), registros)
+    wb.calculation.fullCalcOnLoad = True  # calcula las fórmulas HYPERLINK al abrir
     return wb
 
 

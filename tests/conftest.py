@@ -31,7 +31,6 @@ def acta_completa() -> Acta:
         hora_inicio_trabajo=time(9, 0),
         hora_fin_trabajo=time(13, 30),
         acciones=["Se revisó la bomba"],
-        diagnostico=["Sello desgastado"],
         estado_final="Operativo",
         articulos=[Articulo("SEL-01", "Sello de pistón", 2), Articulo()],
         observaciones=["Cambiar filtro"],

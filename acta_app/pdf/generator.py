@@ -398,7 +398,6 @@ def generar_pdf(acta: Acta) -> bytes:
     _lista(lz, "Antecedentes iniciales", acta.antecedentes)
     _horas(lz, acta)
     _lista(lz, "Acciones realizadas", acta.acciones)
-    _lista(lz, "Detalle del diagnóstico", acta.diagnostico)
     _estado_final(lz, acta)
     _articulos(lz, acta)
     _lista(lz, "Observaciones y/o recomendaciones", acta.observaciones)
