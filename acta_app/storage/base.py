@@ -54,7 +54,16 @@ class RepositorioActas(Protocol):
         ...
 
     def exportar_zip(self) -> bytes | None:
-        """Excel maestro + PDFs en un ZIP (con los enlaces del Excel funcionando)."""
+        """Excel maestro + PDFs en un ZIP (con los enlaces del Excel funcionando).
+        None si no aplica (en SharePoint los archivos ya están en la carpeta)."""
+        ...
+
+    def enlace_carpeta(self) -> str | None:
+        """Enlace para abrir la carpeta de actas en el navegador (SharePoint)."""
+        ...
+
+    def leer_equipos(self) -> bytes | None:
+        """Catálogo de equipos guardado junto a las actas, si existe."""
         ...
 
 

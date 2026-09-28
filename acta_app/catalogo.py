@@ -11,6 +11,7 @@ cliente solo aparecen sus equipos) y se completan los campos que quedan determin
 
 from __future__ import annotations
 
+import io
 import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
@@ -71,6 +72,11 @@ class Catalogo:
         if not ruta.exists():
             return cls(pd.DataFrame(columns=list(COLUMNAS)))
         return cls(_normalizar(pd.read_excel(ruta, dtype=str)))
+
+    @classmethod
+    def desde_bytes(cls, datos: bytes) -> Catalogo:
+        """Equipos.xlsx descargado de SharePoint."""
+        return cls(_normalizar(pd.read_excel(io.BytesIO(datos), dtype=str)))
 
     def tiene(self, campo: str) -> bool:
         """¿El Excel trae valores para este campo? (p. ej. si ya incluye las sedes)."""

@@ -93,6 +93,12 @@ class RepositorioExcelLocal:
                 zf.write(pdf, f"{self._carpeta_pdf_relativa()}/{pdf.name}")
         return buffer.getvalue()
 
+    def enlace_carpeta(self) -> str | None:
+        return None  # en disco local no hay carpeta compartida que abrir
+
+    def leer_equipos(self) -> bytes | None:
+        return None  # el catálogo local se lee directamente de catalogos/equipos.xlsx
+
     # ---------- Escritura ----------
     def guardar(self, acta: Acta, pdf: bytes, nombre_pdf: str) -> ResultadoGuardado:
         acta.fecha_registro = acta.fecha_registro or ahora()

@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 
 # Versión visible al pie de la app. Además se muestra el commit de GitHub desplegado
 # (ver version_desplegada), que cambia solo con cada actualización.
-APP_VERSION = "0.11"
+APP_VERSION = "0.12"
 
 # El servidor (p. ej. Streamlit Cloud) corre en UTC; fechas y horas se toman en hora de Perú.
 ZONA_HORARIA = ZoneInfo("America/Lima")
@@ -26,7 +26,7 @@ EXCEL_MAESTRO_PATH = DATA_DIR / "actas_maestro.xlsx"
 CATALOGOS_DIR = BASE_DIR / "catalogos"
 CATALOGO_EQUIPOS_PATH = CATALOGOS_DIR / "equipos.xlsx"
 
-# ---------- SharePoint (pendiente de activar: faltan los permisos de TI) ----------
+# ---------- SharePoint (se activa con la sección [sharepoint] de los Secrets) ----------
 # Destino acordado. Las claves de acceso (tenant, client id, client secret) NO van aquí:
 # se cargarán en los «Secrets» de Streamlit Cloud.
 SHAREPOINT_SITIO = "https://sistemasanaliticospe.sharepoint.com/sites/OperacionesyServicios"

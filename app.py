@@ -9,10 +9,12 @@ from acta_app.storage import (
     ActaDuplicadaError,
     ActaNoEncontradaError,
     AlmacenamientoError,
+    configuracion_sharepoint,
     fila_plana,
     formatear_valor,
     obtener_repositorio,
     registro_desde_acta,
+    usa_sharepoint,
 )
 from acta_app.ui.components import encabezado, etiqueta, seccion
 from acta_app.ui.form import (
@@ -23,6 +25,7 @@ from acta_app.ui.form import (
     limpiar_formulario,
     salir_de_correccion,
 )
+from acta_app.ui.catalogo_ui import refrescar_catalogo
 from acta_app.ui.styles import aplicar_estilos
 from acta_app.validation import validar_acta
 
@@ -32,6 +35,24 @@ st.set_page_config(
     layout="centered",
 )
 aplicar_estilos()
+
+
+def exigir_inicio_de_sesion() -> None:
+    """Si los Secrets tienen la sección [auth], solo entran cuentas de la empresa
+    (inicio de sesión con Microsoft). Sin esa sección, la app queda abierta como hoy."""
+    try:
+        con_login = "auth" in st.secrets
+    except Exception:
+        con_login = False
+    if not con_login or st.user.is_logged_in:
+        return
+    encabezado()
+    st.info("Inicia sesión con tu cuenta de Sistemas Analíticos para registrar actas.")
+    st.button("Iniciar sesión con Microsoft", on_click=st.login, type="primary", width="stretch")
+    st.stop()
+
+
+exigir_inicio_de_sesion()
 
 
 @st.dialog("Vista previa de la fila (Excel)", width="large")
@@ -45,7 +66,7 @@ def dialogo_fila(acta: Acta) -> None:
 
 
 @st.dialog("Acta guardada correctamente")
-def dialogo_guardado(acta: Acta, pdf: bytes, nombre_pdf: str, total_actas: int) -> None:
+def dialogo_guardado(acta: Acta, pdf: bytes, nombre_pdf: str, total_actas: int, enlace_pdf: str = "") -> None:
     st.write(
         f"El acta N.° {acta.numero} se agregó como una nueva fila al Excel maestro "
         f"({total_actas} {'acta registrada' if total_actas == 1 else 'actas registradas'} en total) "
@@ -61,6 +82,8 @@ def dialogo_guardado(acta: Acta, pdf: bytes, nombre_pdf: str, total_actas: int) 
         type="primary",
         width="stretch",
     )
+    if enlace_pdf.startswith("http"):
+        st.link_button("Abrir el PDF en SharePoint", enlace_pdf, width="stretch")
     # La limpieza va en el callback (antes de dibujar) y st.rerun() recarga toda la página,
     # no solo la ventana.
     if st.button("Registrar una nueva acta", on_click=limpiar_formulario, width="stretch"):
@@ -76,7 +99,7 @@ def volver_a_nueva_acta() -> None:
 
 
 @st.dialog("Corrección guardada")
-def dialogo_correccion(acta: Acta, pdf: bytes, nombre_pdf: str) -> None:
+def dialogo_correccion(acta: Acta, pdf: bytes, nombre_pdf: str, enlace_pdf: str = "") -> None:
     st.write(
         f"Se actualizó la fila del acta N.° {acta.numero} en el Excel maestro con los datos "
         f"corregidos (revisión {acta.revision}). El PDF original se conserva y se creó "
@@ -91,6 +114,8 @@ def dialogo_correccion(acta: Acta, pdf: bytes, nombre_pdf: str) -> None:
         type="primary",
         width="stretch",
     )
+    if enlace_pdf.startswith("http"):
+        st.link_button("Abrir el PDF corregido en SharePoint", enlace_pdf, width="stretch")
     if st.button("Volver a registrar actas nuevas", on_click=volver_a_nueva_acta, width="stretch"):
         st.rerun()
 
@@ -103,12 +128,18 @@ def _cargar_para_corregir() -> None:
         cargar_en_formulario(obtener_repositorio().obtener(numero))
     except ActaNoEncontradaError:
         st.session_state["aviso_correccion"] = f"No se encontró el acta N.° {numero}."
+    except AlmacenamientoError as exc:
+        st.session_state["aviso_correccion"] = str(exc)
 
 
 def selector_correccion() -> Acta | None:
     """Elegir el acta a corregir. Devuelve el acta original cargada (o None)."""
-    numeros = obtener_repositorio().numeros()
     with seccion("corregir", "Corregir un acta", obligatorio=False):
+        try:
+            numeros = obtener_repositorio().numeros()
+        except AlmacenamientoError as exc:
+            st.error(str(exc))
+            return None
         if not numeros:
             st.info("Todavía no hay actas guardadas para corregir.")
             return None
@@ -151,12 +182,23 @@ def aplicar_datos_de_correccion(acta: Acta, original: Acta) -> Acta:
 
 
 def seccion_base_de_datos() -> None:
-    """Descargas del Excel maestro y los PDFs (en la nube el disco no es permanente)."""
+    """Dónde quedan las actas: carpeta de SharePoint o, sin SharePoint, descargas."""
     repo = obtener_repositorio()
-    excel = repo.excel_bytes()
-    total = 0 if excel is None else len(repo.leer_actas())
-    etiqueta = "acta registrada" if total == 1 else "actas registradas"
-    with st.expander(f"Base de datos de actas ({total} {etiqueta})"):
+    try:
+        excel = repo.excel_bytes()
+        total = 0 if excel is None else len(repo.leer_actas())
+        carpeta = repo.enlace_carpeta()
+    except AlmacenamientoError as exc:
+        st.error(f"No se pudo leer la base de datos de actas: {exc}")
+        return
+    etiqueta_total = "acta registrada" if total == 1 else "actas registradas"
+    with st.expander(f"Base de datos de actas ({total} {etiqueta_total})"):
+        if carpeta:
+            st.link_button("Abrir la carpeta de actas en SharePoint", carpeta, width="stretch")
+            st.caption(
+                "Allí están Actas.xlsx (con los enlaces a cada PDF), la carpeta PDF y "
+                "Equipos.xlsx. Solo pueden abrirlos las cuentas con acceso a la carpeta."
+            )
         if excel is None:
             st.caption("Todavía no se ha guardado ninguna acta.")
             return
@@ -168,6 +210,8 @@ def seccion_base_de_datos() -> None:
             on_click="ignore",
             width="stretch",
         )
+        if carpeta:
+            return
         st.download_button(
             "Descargar Excel + PDFs (ZIP)",
             data=repo.exportar_zip,  # se arma solo al pulsar el botón
@@ -177,10 +221,32 @@ def seccion_base_de_datos() -> None:
             width="stretch",
         )
         st.caption(
-            "En las columnas «PDF original» y «PDF corregido» cada nombre es un enlace al PDF. Funcionan "
-            "al descomprimir el ZIP (Excel y carpeta «pdfs» juntos). Con SharePoint, abrirán el "
-            "PDF directamente en la biblioteca."
+            "En las columnas «PDF original» y «PDF corregido» cada nombre es un enlace al PDF. "
+            "Funcionan al descomprimir el ZIP (Excel y carpeta «pdfs» juntos)."
         )
+
+
+def seccion_conexion() -> None:
+    """Estado del almacenamiento y verificación de la conexión con SharePoint."""
+    if not usa_sharepoint():
+        st.caption(
+            "⚠️ Sin conexión a SharePoint: las actas se guardan en el servidor de la app, que "
+            "se borra al reiniciarla. Descarga el ZIP para conservarlas."
+        )
+        return
+    cfg = configuracion_sharepoint() or {}
+    with st.expander("Conexión con SharePoint"):
+        st.caption(
+            f"Carpeta: {cfg.get('carpeta', config.SHAREPOINT_CARPETA)} · "
+            f"sitio {cfg.get('sitio', config.SHAREPOINT_SITIO).rsplit('/', 1)[-1]}"
+        )
+        c1, c2 = st.columns(2)
+        if c1.button("Probar conexión", width="stretch"):
+            for ok, mensaje in obtener_repositorio().probar_conexion():
+                (st.success if ok else st.error)(mensaje, icon="✅" if ok else "❌")
+        if c2.button("Actualizar catálogo de equipos", width="stretch"):
+            refrescar_catalogo()
+            st.success("Se volverá a leer Equipos.xlsx de SharePoint.", icon="✅")
 
 
 encabezado()
@@ -224,7 +290,12 @@ def aviso(tipo: str, mensaje: str) -> None:
 
 def guardar_acta_nueva(acta: Acta) -> None:
     repo = obtener_repositorio()
-    if repo.existe(acta.numero):
+    try:
+        existe = repo.existe(acta.numero)
+    except AlmacenamientoError as exc:
+        aviso("error", str(exc))
+        return
+    if existe:
         aviso("warning", f"Ya existe un acta con el N.° {acta.numero}. Usa otro número.")
         return
     acta.fecha_registro = ahora()
@@ -238,7 +309,7 @@ def guardar_acta_nueva(acta: Acta) -> None:
         aviso("error", str(exc))
     else:
         banner.success(f"Acta N.° {acta.numero} guardada correctamente.", icon="✅")
-        dialogo_guardado(acta, pdf, nombre_pdf, resultado.total_actas)
+        dialogo_guardado(acta, pdf, nombre_pdf, resultado.total_actas, resultado.ubicacion_pdf)
 
 
 def guardar_correccion(acta: Acta) -> None:
@@ -246,13 +317,13 @@ def guardar_correccion(acta: Acta) -> None:
     pdf = generar_pdf(acta)
     nombre_pdf = nombre_archivo_pdf(acta)
     try:
-        obtener_repositorio().corregir(acta, pdf, nombre_pdf)
+        resultado = obtener_repositorio().corregir(acta, pdf, nombre_pdf)
     except (AlmacenamientoError, ActaNoEncontradaError) as exc:
         mensaje = str(exc) if isinstance(exc, AlmacenamientoError) else f"No se encontró el acta N.° {acta.numero}."
         aviso("error", mensaje)
     else:
         banner.success(f"Corrección del acta N.° {acta.numero} guardada (revisión {acta.revision}).", icon="✅")
-        dialogo_correccion(acta, pdf, nombre_pdf)
+        dialogo_correccion(acta, pdf, nombre_pdf, resultado.ubicacion_pdf)
 
 
 if acta is not None and ver_fila:
@@ -271,7 +342,15 @@ if acta is not None and guardar:
         guardar_acta_nueva(acta)
 
 seccion_base_de_datos()
+seccion_conexion()
+usuario = ""
+try:
+    if "auth" in st.secrets and st.user.is_logged_in:
+        usuario = f" · {st.user.get('email') or st.user.get('name') or ''}"
+        st.button("Cerrar sesión", on_click=st.logout, type="tertiary")
+except Exception:
+    pass
 st.markdown(
-    f'<div class="app-version">{config.SITIO_WEB} · versión {config.version_desplegada()}</div>',
+    f'<div class="app-version">{config.SITIO_WEB} · versión {config.version_desplegada()}{usuario}</div>',
     unsafe_allow_html=True,
 )

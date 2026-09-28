@@ -9,3 +9,6 @@ data/*.xlsx
 data/pdfs/*.pdf
 ~$*.xlsx
 data/firmas/
+
+# Claves locales de Streamlit: NUNCA subirlas a GitHub
+.streamlit/secrets.toml

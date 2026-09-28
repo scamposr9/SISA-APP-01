@@ -33,7 +33,8 @@ SISA-APP-01/
         ├── base.py            # Contrato RepositorioActas
         ├── esquema.py         # Columnas del Excel (campos y grupos de ítems)
         ├── excel_formato.py   # Leer/escribir el libro (reutilizable para SharePoint)
-        └── excel_local.py     # Excel maestro en disco (hoy); SharePoint irá a su lado
+        ├── excel_local.py     # Sin SharePoint: Excel y PDFs en el disco del servidor
+        └── sharepoint.py      # Con SharePoint: Actas.xlsx, PDF/, Firmas/ y Equipos.xlsx
 tests/                         # Pruebas de validación, fila de Excel y PDF (pytest)
 ```
 
@@ -57,8 +58,47 @@ sobre ese objeto sin depender de Streamlit.
   revisión. Las firmas originales se pueden conservar o volver a tomar.
 - La estructura de columnas está en `acta_app/storage/esquema.py`.
 
-> En Streamlit Community Cloud el disco no es permanente: descarga "Excel + PDFs (ZIP)"
-> desde "Base de datos de actas". La persistencia real llegará con SharePoint.
+## SharePoint
+
+Si los **Secrets** de Streamlit Cloud (*App → Settings → Secrets*) tienen la sección
+`[sharepoint]`, la app guarda todo en la carpeta `16. Analisis de Datos/Actas` del sitio
+*OperacionesyServicios*:
+
+```toml
+[sharepoint]
+tenant_id = "<Directory (tenant) ID>"
+client_id = "<Application (client) ID>"
+client_secret = "<VALOR del client secret (no su ID)>"
+# Opcionales (por defecto, los de acta_app/config.py):
+# sitio = "https://sistemasanaliticospe.sharepoint.com/sites/OperacionesyServicios"
+# biblioteca = "Documentos compartidos"
+# carpeta = "16. Analisis de Datos/Actas"
+```
+
+- `Actas.xlsx` lo crea la app con la primera acta; los PDF van a `PDF/` y las firmas a
+  `Firmas/`. Los enlaces del Excel abren cada PDF en SharePoint.
+- Si otra persona guarda al mismo tiempo, la app lo detecta (eTag) y reintenta sin perder filas.
+- `Equipos.xlsx` en la misma carpeta alimenta el autocompletado (se relee cada 5 minutos o
+  con «Actualizar catálogo de equipos»). Si no está, se usa `catalogos/equipos.xlsx`.
+- «Conexión con SharePoint → Probar conexión», al final de la app, verifica acceso y escritura.
+- La app usa el permiso de aplicación **Sites.Selected**: TI debe asignarle escritura sobre el sitio.
+
+Sin la sección `[sharepoint]`, todo se guarda en el disco del servidor, que en Streamlit
+Community Cloud se borra al reiniciar: descarga "Excel + PDFs (ZIP)".
+
+### Inicio de sesión con Microsoft (opcional)
+
+Con una sección `[auth]` en los Secrets, solo entran cuentas de la empresa (requiere la
+Redirect URI `https://sisa-app.streamlit.app/oauth2callback` en Azure):
+
+```toml
+[auth]
+redirect_uri = "https://sisa-app.streamlit.app/oauth2callback"
+cookie_secret = "<texto aleatorio largo>"
+client_id = "<Application (client) ID>"
+client_secret = "<VALOR del client secret>"
+server_metadata_url = "https://login.microsoftonline.com/<tenant ID>/v2.0/.well-known/openid-configuration"
+```
 
 ## Ejecutar
 
