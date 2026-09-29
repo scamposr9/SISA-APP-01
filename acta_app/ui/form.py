@@ -8,7 +8,7 @@ from acta_app.models import Acta, hoy
 from acta_app.ui.catalogo_ui import cargar_catalogo
 from acta_app.ui.components import (
     etiqueta,
-    firma,
+    firma_o_camara,
     lista_dinamica,
     precargar_articulos,
     precargar_lista,
@@ -249,13 +249,13 @@ def formulario_acta() -> Acta:
             if conservar:
                 acta.firma_cliente_png = _firma_original(original.firma_cliente_png, "Cliente")
             else:
-                acta.firma_cliente_png = firma(k("firma_cliente"), "Cliente")
+                acta.firma_cliente_png = firma_o_camara(k("firma_cliente"), "Cliente")
             acta.nombre_cliente = st.text_input(etiqueta("Nombre del cliente"), key=k("nombre_cliente")).strip()
         with c2:
             if conservar:
                 acta.firma_representante_png = _firma_original(original.firma_representante_png, config.EMPRESA)
             else:
-                acta.firma_representante_png = firma(k("firma_representante"), config.EMPRESA)
+                acta.firma_representante_png = firma_o_camara(k("firma_representante"), config.EMPRESA)
             acta.nombre_representante = st.text_input(
                 etiqueta("Nombre del representante"), key=k("nombre_representante")
             ).strip()

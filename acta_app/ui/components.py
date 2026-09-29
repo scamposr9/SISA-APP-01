@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import base64
+import io
 from contextlib import contextmanager
 
 import pandas as pd
+from PIL import Image, ImageEnhance, ImageOps
 import streamlit as st
 from streamlit_drawable_canvas import st_canvas
 
@@ -197,3 +199,171 @@ def firma(clave: str, rotulo: str) -> bytes | None:
 
     trazos = (resultado.json_data or {}).get("objects", [])
     return resultado.image_bytes if trazos else None
+
+
+def _procesar_foto_firma(datos: bytes) -> bytes:
+    """Convierte la fotografía en una evidencia tipo escaneo de firma/sello.
+
+    - Corrige orientación EXIF.
+    - Detecta automáticamente la zona clara correspondiente al papel.
+    - Recorta parte del entorno.
+    - Mejora contraste y nitidez.
+    - Conserva colores de sellos.
+    - La adapta a la proporción del espacio de firma del PDF.
+    """
+    with Image.open(io.BytesIO(datos)) as original:
+        imagen = ImageOps.exif_transpose(original).convert("RGB")
+
+        # Reducir temporalmente para analizar el papel más rápido.
+        analisis = imagen.copy()
+        analisis.thumbnail((900, 900), Image.Resampling.LANCZOS)
+
+        # Buscar píxeles suficientemente claros: normalmente corresponden al papel.
+        gris = analisis.convert("L")
+        mascara = gris.point(lambda p: 255 if p >= 145 else 0)
+
+        bbox = mascara.getbbox()
+
+        if bbox:
+            escala_x = imagen.width / analisis.width
+            escala_y = imagen.height / analisis.height
+
+            izquierda = int(bbox[0] * escala_x)
+            arriba = int(bbox[1] * escala_y)
+            derecha = int(bbox[2] * escala_x)
+            abajo = int(bbox[3] * escala_y)
+
+            # Pequeño margen para no cortar firma/sello en los bordes.
+            margen_x = int((derecha - izquierda) * 0.04)
+            margen_y = int((abajo - arriba) * 0.06)
+
+            izquierda = max(0, izquierda - margen_x)
+            arriba = max(0, arriba - margen_y)
+            derecha = min(imagen.width, derecha + margen_x)
+            abajo = min(imagen.height, abajo + margen_y)
+
+            # Evitar recortes absurdamente pequeños por reflejos.
+            ancho = derecha - izquierda
+            alto = abajo - arriba
+
+            if ancho > imagen.width * 0.25 and alto > imagen.height * 0.15:
+                imagen = imagen.crop(
+                    (izquierda, arriba, derecha, abajo)
+                )
+
+        # Mejoras suaves para conservar tinta y sellos de colores.
+        imagen = ImageEnhance.Contrast(imagen).enhance(1.15)
+        imagen = ImageEnhance.Sharpness(imagen).enhance(1.2)
+
+        # Fondo blanco con la proporción del espacio de firma del PDF.
+        ancho_salida = 1400
+        alto_salida = 480
+
+        imagen.thumbnail(
+            (ancho_salida, alto_salida),
+            Image.Resampling.LANCZOS,
+        )
+
+        lienzo = Image.new(
+            "RGB",
+            (ancho_salida, alto_salida),
+            "white",
+        )
+
+        x = (ancho_salida - imagen.width) // 2
+        y = (alto_salida - imagen.height) // 2
+
+        lienzo.paste(imagen, (x, y))
+
+        salida = io.BytesIO()
+        lienzo.save(
+            salida,
+            format="PNG",
+            optimize=True,
+        )
+
+        return salida.getvalue()
+
+
+def firma_o_camara(clave: str, rotulo: str) -> bytes | None:
+    """Permite firmar en pantalla o fotografiar una firma/sello físico.
+
+    Los dos métodos devuelven una imagen PNG, por lo que el modelo del Acta y
+    el generador PDF no necesitan distinguir de dónde provino la firma.
+    """
+    metodo = st.radio(
+        f"Método de conformidad - {rotulo}",
+        [
+            "Firmar en pantalla",
+            "Fotografiar firma / sello",
+        ],
+        horizontal=True,
+        key=f"{clave}_metodo",
+        label_visibility="collapsed",
+    )
+
+    if metodo == "Firmar en pantalla":
+        return firma(clave, rotulo)
+
+    version_key = f"{clave}_camara_version"
+    st.session_state.setdefault(version_key, 0)
+
+    def repetir_foto() -> None:
+        st.session_state[version_key] += 1
+
+    st.caption(
+        "Fotografía únicamente el recuadro de la hoja que contiene la "
+        "firma y/o sello. Acerca la cámara y evita incluir rostros u otra "
+        "información innecesaria del documento."
+    )
+
+    captura = st.camera_input(
+        f"Fotografiar firma o sello de {rotulo}",
+        key=f"{clave}_camara_{st.session_state[version_key]}",
+        label_visibility="collapsed",
+    )
+
+    if captura is None:
+        st.markdown(
+            f'<div class="sign-label">{rotulo}</div>',
+            unsafe_allow_html=True,
+        )
+        return None
+
+    try:
+        procesada = _procesar_foto_firma(
+            captura.getvalue()
+        )
+    except Exception:
+        st.error(
+            "No se pudo procesar la fotografía. Vuelve a tomarla."
+        )
+        st.button(
+            "Volver a tomar foto",
+            key=f"repetir_{clave}",
+            on_click=repetir_foto,
+            type="tertiary",
+            width="stretch",
+        )
+        return None
+
+    st.image(
+        procesada,
+        width="stretch",
+        caption="Vista previa de la firma/sello que aparecerá en el PDF",
+    )
+
+    st.markdown(
+        f'<div class="sign-label">{rotulo}</div>',
+        unsafe_allow_html=True,
+    )
+
+    st.button(
+        "Volver a tomar foto",
+        key=f"repetir_{clave}",
+        on_click=repetir_foto,
+        type="tertiary",
+        width="stretch",
+    )
+
+    return procesada
