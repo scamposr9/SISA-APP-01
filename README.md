@@ -89,8 +89,9 @@ Community Cloud se borra al reiniciar: descarga "Excel + PDFs (ZIP)".
 
 ### Inicio de sesión con Microsoft (opcional)
 
-Con una sección `[auth]` en los Secrets, solo entran cuentas de la empresa (requiere la
-Redirect URI `https://sisa-app.streamlit.app/oauth2callback` en Azure):
+Con una sección `[auth]` en los Secrets, la app pide iniciar sesión con Microsoft y solo deja
+pasar correos `@sistemasanaliticos.com` (`config.DOMINIO_PERMITIDO`). Requiere la Redirect URI
+`https://sisa-app.streamlit.app/oauth2callback` (plataforma *Web*) en Azure:
 
 ```toml
 [auth]

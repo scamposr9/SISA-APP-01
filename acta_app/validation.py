@@ -1,5 +1,6 @@
 """Reglas de validación del acta (mismas que el prototipo HTML)."""
 
+from acta_app import config
 from acta_app.models import Acta
 
 
@@ -27,6 +28,8 @@ def validar_acta(acta: Acta) -> list[str]:
 
     if not acta.tipo_servicio:
         errores.append("Tipo de servicio")
+    elif acta.tipo_servicio == config.TIPO_SERVICIO_OTRO and not acta.tipo_servicio_otro:
+        errores.append("Tipo de servicio (elige Presite, Instalación o Actualización)")
     if not acta.estado_final:
         errores.append("Estado final del servicio")
 

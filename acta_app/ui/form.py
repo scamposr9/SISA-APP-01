@@ -60,7 +60,9 @@ def cargar_en_formulario(acta: Acta) -> None:
         "modelo": acta.modelo or None,
         "serie": acta.numero_serie or None,
         "tipo_servicio": acta.tipo_servicio,
-        "tipo_servicio_otro": acta.tipo_servicio_otro,
+        # Actas anteriores con «Otro» escrito a mano: hay que elegir una de las opciones.
+        "tipo_servicio_otro": acta.tipo_servicio_otro
+        if acta.tipo_servicio_otro in config.TIPOS_SERVICIO_OTRO else None,
         "hora_inicio_trabajo": acta.hora_inicio_trabajo,
         "hora_fin_trabajo": acta.hora_fin_trabajo,
         "estado_final": acta.estado_final,
@@ -128,7 +130,7 @@ def _campo_catalogo(contenedor, texto: str, campo: str) -> str:
 
 def _limpiar_otro() -> None:
     if st.session_state.get(k("tipo_servicio")) != config.TIPO_SERVICIO_OTRO:
-        st.session_state[k("tipo_servicio_otro")] = ""
+        st.session_state[k("tipo_servicio_otro")] = None
 
 
 def formulario_acta() -> Acta:
@@ -175,13 +177,15 @@ def formulario_acta() -> Acta:
             on_change=_limpiar_otro,
             label_visibility="collapsed",
         )
-        acta.tipo_servicio_otro = c2.text_input(
+        acta.tipo_servicio_otro = c2.selectbox(
             "Otro",
+            config.TIPOS_SERVICIO_OTRO,
+            index=None,
             key=k("tipo_servicio_otro"),
-            placeholder="especificar",
+            placeholder="Elige el tipo…",
             disabled=acta.tipo_servicio != config.TIPO_SERVICIO_OTRO,
             label_visibility="collapsed",
-        ).strip()
+        ) or ""
 
     # ---------- Antecedentes ----------
     with seccion("antecedentes", "Antecedentes iniciales"):

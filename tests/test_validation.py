@@ -19,3 +19,10 @@ def test_fila_de_articulo_incompleta_es_error(acta_completa):
     assert validar_acta(acta_completa) == [
         "Artículos empleados (completa las 3 columnas de cada fila usada)"
     ]
+
+
+def test_otro_exige_elegir_una_opcion(acta_completa):
+    acta_completa.tipo_servicio, acta_completa.tipo_servicio_otro = "Otro", ""
+    assert any("Presite" in e for e in validar_acta(acta_completa))
+    acta_completa.tipo_servicio_otro = "Actualización"
+    assert validar_acta(acta_completa) == []

@@ -37,6 +37,15 @@ st.set_page_config(
 aplicar_estilos()
 
 
+def correo_usuario() -> str:
+    """Correo de la cuenta Microsoft (claim email o, si no viene, preferred_username)."""
+    return str(st.user.get("email") or st.user.get("preferred_username") or "").strip().lower()
+
+
+def correo_permitido(correo: str) -> bool:
+    return correo.endswith("@" + config.DOMINIO_PERMITIDO.lower())
+
+
 def exigir_inicio_de_sesion() -> None:
     """Si los Secrets tienen la sección [auth], solo entran cuentas de la empresa
     (inicio de sesión con Microsoft). Sin esa sección, la app queda abierta como hoy."""
@@ -44,8 +53,18 @@ def exigir_inicio_de_sesion() -> None:
         con_login = "auth" in st.secrets
     except Exception:
         con_login = False
-    if not con_login or st.user.is_logged_in:
+    if not con_login:
         return
+    if st.user.is_logged_in:
+        if correo_permitido(correo_usuario()):
+            return
+        encabezado()
+        st.error(
+            f"La cuenta {correo_usuario() or '(sin correo)'} no pertenece a @{config.DOMINIO_PERMITIDO}. "
+            "Cierra sesión y entra con tu correo de Sistemas Analíticos."
+        )
+        st.button("Cerrar sesión", on_click=st.logout, width="stretch")
+        st.stop()
     encabezado()
     st.info("Inicia sesión con tu cuenta de Sistemas Analíticos para registrar actas.")
     st.button("Iniciar sesión con Microsoft", on_click=st.login, type="primary", width="stretch")
@@ -251,9 +270,6 @@ def seccion_conexion() -> None:
 
 encabezado()
 st.markdown(
-    '<div class="top-note"><strong>Prototipo (MVP).</strong> Esta acta se ve y se completa igual que '
-    "el formato físico FO-ING-02. Al presionar <em>Guardar acta</em>, cada campo se convierte en una "
-    "columna y esta acta se agrega como una fila nueva a la base de datos de actas.</div>"
     '<div class="required-note"><span class="req-star">*</span> Campo obligatorio</div>',
     unsafe_allow_html=True,
 )

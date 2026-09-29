@@ -160,7 +160,9 @@ def acta_desde_registro(registro: Registro) -> Acta:
 
     tipo = texto("Tipo de Servicio")
     tipo_otro = ""
-    if tipo.startswith(config.TIPO_SERVICIO_OTRO):
+    if tipo in config.TIPOS_SERVICIO_OTRO:
+        tipo, tipo_otro = config.TIPO_SERVICIO_OTRO, tipo
+    elif tipo.startswith(config.TIPO_SERVICIO_OTRO):
         tipo, _, tipo_otro = tipo.partition(":")
         tipo, tipo_otro = config.TIPO_SERVICIO_OTRO, tipo_otro.strip()
 

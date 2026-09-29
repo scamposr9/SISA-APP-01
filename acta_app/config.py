@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 
 # Versión visible al pie de la app. Además se muestra el commit de GitHub desplegado
 # (ver version_desplegada), que cambia solo con cada actualización.
-APP_VERSION = "0.13.0"
+APP_VERSION = "0.14.0"
 
 # El servidor (p. ej. Streamlit Cloud) corre en UTC; fechas y horas se toman en hora de Perú.
 ZONA_HORARIA = ZoneInfo("America/Lima")
@@ -30,6 +30,8 @@ CATALOGO_EQUIPOS_PATH = CATALOGOS_DIR / "equipos.xlsx"
 # Destino acordado. Las claves de acceso (tenant, client id, client secret) NO van aquí:
 # se cargarán en los «Secrets» de Streamlit Cloud.
 AZURE_APP_NOMBRE = "SISA Actas Ingeniería"  # nombre de la app registrada en Entra ID
+# Con inicio de sesión activo ([auth] en los Secrets), solo entran correos de este dominio.
+DOMINIO_PERMITIDO = "sistemasanaliticos.com"
 SHAREPOINT_SITIO = "https://sistemasanaliticospe.sharepoint.com/sites/OperacionesyServicios"
 SHAREPOINT_BIBLIOTECA = "Documentos compartidos"
 SHAREPOINT_CARPETA = "16. Analisis de Datos/Actas"
@@ -50,6 +52,8 @@ TIPO_SERVICIO_PREVENTIVO = "Mant. Preventivo"
 TIPO_SERVICIO_CORRECTIVO = "Mant. Correctivo"
 TIPO_SERVICIO_OTRO = "Otro"
 TIPOS_SERVICIO = [TIPO_SERVICIO_PREVENTIVO, TIPO_SERVICIO_CORRECTIVO, TIPO_SERVICIO_OTRO]
+# Con «Otro» se elige uno de estos; es lo que se marca en el PDF y se guarda en el Excel.
+TIPOS_SERVICIO_OTRO = ["Presite", "Instalación", "Actualización"]
 
 ESTADOS_FINALES = ["Operativo", "Inoperativo", "En Observación"]
 

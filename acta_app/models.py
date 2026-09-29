@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date, datetime, time
 
-from acta_app.config import TIPO_SERVICIO_OTRO, ZONA_HORARIA
+from acta_app.config import TIPO_SERVICIO_OTRO, TIPOS_SERVICIO_OTRO, ZONA_HORARIA
 
 
 @dataclass
@@ -68,7 +68,9 @@ class Acta:
     @property
     def tipo_servicio_texto(self) -> str:
         if self.tipo_servicio == TIPO_SERVICIO_OTRO and self.tipo_servicio_otro:
-            return f"{TIPO_SERVICIO_OTRO}: {self.tipo_servicio_otro}"
+            if self.tipo_servicio_otro in TIPOS_SERVICIO_OTRO:
+                return self.tipo_servicio_otro  # Presite, Instalación o Actualización
+            return f"{TIPO_SERVICIO_OTRO}: {self.tipo_servicio_otro}"  # actas anteriores
         return self.tipo_servicio or ""
 
     @property

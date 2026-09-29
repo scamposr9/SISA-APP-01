@@ -251,3 +251,11 @@ def test_enlace_hyperlink_ida_y_vuelta():
     assert leer_hipervinculo(formula) == ('https://sp/a "b".pdf', 'Acta "1".pdf')
     assert formula_hipervinculo("https://sp/" + "x" * 300, "a.pdf") is None
     assert leer_hipervinculo("Acta.pdf") is None
+
+
+def test_tipo_otro_con_opcion_se_guarda_y_se_recupera(repo, acta_completa):
+    acta_completa.tipo_servicio, acta_completa.tipo_servicio_otro = "Otro", "Presite"
+    repo.guardar(acta_completa, b"pdf", "1.pdf")
+    assert _fila(_hoja(repo), 1)["Tipo de Servicio"] == "Presite"
+    acta = repo.obtener(acta_completa.numero)
+    assert (acta.tipo_servicio, acta.tipo_servicio_otro) == ("Otro", "Presite")

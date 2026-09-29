@@ -34,10 +34,6 @@ _CSS = f"""
   }}
 
   /* ---------- Notas superiores ---------- */
-  .top-note {{
-    padding: 12px 14px; background: #EEF2F8; border: 1px solid #C9D6EA; border-radius: 6px;
-    font-size: 12.5px; color: #33456B; line-height: 1.5; margin-bottom: 14px;
-  }}
   .required-note {{ font-size: 12.5px; color: #444; font-weight: 600; margin-bottom: 6px; }}
   .req-star {{ color: {RED}; font-weight: 700; margin-left: 2px; }}
 
