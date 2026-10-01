@@ -27,20 +27,33 @@ def _cargar_sharepoint() -> Catalogo | None:
     return Catalogo.desde_bytes(datos) if datos else None
 
 
+@st.cache_data(show_spinner=False, ttl=300)
+def _cargar_equipos_nuevos() -> Catalogo | None:
+    datos = obtener_repositorio().leer_equipos_nuevos()
+    return Catalogo.desde_bytes(datos) if datos else None
+
+
 def cargar_catalogo() -> Catalogo:
     """Con SharePoint se lee Equipos.xlsx de la carpeta de actas (se refresca cada 5
     minutos). Sin SharePoint, solo si alguien dejó un catalogos/equipos.xlsx local (p. ej.
-    para pruebas en su computadora); los datos de la empresa no se guardan en GitHub."""
+    para pruebas en su computadora); los datos de la empresa no se guardan en GitHub.
+    En ambos casos se suman los equipos anotados en Equipos_nuevos.xlsx."""
+    catalogo = None
     if usa_sharepoint():
         try:
             catalogo = _cargar_sharepoint()
         except AlmacenamientoError:
             catalogo = None
-        if catalogo is not None:
-            return catalogo
-    return _cargar_local(_firma_archivo(config.CATALOGO_EQUIPOS_PATH))
+    if catalogo is None:
+        catalogo = _cargar_local(_firma_archivo(config.CATALOGO_EQUIPOS_PATH))
+    try:
+        nuevos = _cargar_equipos_nuevos()
+    except AlmacenamientoError:
+        nuevos = None
+    return catalogo.unir(nuevos) if nuevos is not None else catalogo
 
 
 def refrescar_catalogo() -> None:
     _cargar_sharepoint.clear()
     _cargar_local.clear()
+    _cargar_equipos_nuevos.clear()

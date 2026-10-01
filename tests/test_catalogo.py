@@ -97,3 +97,19 @@ def test_excel_sin_sedes_deja_cliente_y_ubicacion_manuales(tmp_path):
 def test_sin_archivo_el_catalogo_queda_vacio(tmp_path):
     vacio = Catalogo.desde_excel(tmp_path / "no.xlsx")
     assert vacio.opciones("cliente", {}) == [] and vacio.autocompletar({"serie": "X"}) == {}
+
+
+def test_equipo_es_nuevo_solo_si_su_serie_no_esta_en_el_catalogo(acta_completa):
+    import pandas as pd
+
+    from acta_app.catalogo import Catalogo
+    from acta_app.equipos_nuevos import es_equipo_nuevo
+
+    catalogo = Catalogo(pd.DataFrame([{
+        "equipo": "Analizador", "marca": "X", "modelo": "M1", "serie": "sn123",
+        "cliente": "", "ubicacion": "",
+    }]))
+    acta_completa.numero_serie = " SN123 "
+    assert not es_equipo_nuevo(catalogo, acta_completa)
+    acta_completa.numero_serie = "SN-NUEVA"
+    assert es_equipo_nuevo(catalogo, acta_completa)

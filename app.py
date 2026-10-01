@@ -25,7 +25,8 @@ from acta_app.ui.form import (
     limpiar_formulario,
     salir_de_correccion,
 )
-from acta_app.ui.catalogo_ui import refrescar_catalogo
+from acta_app.equipos_nuevos import es_equipo_nuevo
+from acta_app.ui.catalogo_ui import cargar_catalogo, refrescar_catalogo
 from acta_app.ui.styles import aplicar_estilos
 from acta_app.validation import validar_acta
 
@@ -315,6 +316,27 @@ def aviso(tipo: str, mensaje: str) -> None:
     getattr(st, tipo)(mensaje, icon=icono)
 
 
+def anotar_si_es_equipo_nuevo(acta: Acta) -> None:
+    """Si la serie no está en el catálogo, anota el equipo en Equipos_nuevos.xlsx para
+    revisarlo. Un fallo aquí no afecta al acta, que ya está guardada."""
+    try:
+        if not es_equipo_nuevo(cargar_catalogo(), acta):
+            return
+        try:
+            registrado_por = correo_usuario() if st.user.is_logged_in else ""
+        except Exception:  # sin [auth] en los Secrets
+            registrado_por = ""
+        if obtener_repositorio().registrar_equipo_nuevo(acta, registrado_por or acta.nombre_representante):
+            refrescar_catalogo()
+            st.info(
+                f"Equipo nuevo (serie {acta.numero_serie}) anotado en Equipos_nuevos.xlsx para "
+                "revisarlo y pasarlo a Equipos.xlsx.",
+                icon="🆕",
+            )
+    except AlmacenamientoError as exc:
+        st.warning(f"El acta se guardó, pero no se pudo anotar el equipo nuevo: {exc}", icon="⚠️")
+
+
 def guardar_acta_nueva(acta: Acta) -> None:
     repo = obtener_repositorio()
     try:
@@ -336,6 +358,7 @@ def guardar_acta_nueva(acta: Acta) -> None:
         aviso("error", str(exc))
     else:
         banner.success(f"Acta N.° {acta.numero} guardada correctamente.", icon="✅")
+        anotar_si_es_equipo_nuevo(acta)
         dialogo_guardado(acta, pdf, nombre_pdf, resultado.total_actas, resultado.ubicacion_pdf)
 
 
@@ -350,6 +373,7 @@ def guardar_correccion(acta: Acta) -> None:
         aviso("error", mensaje)
     else:
         banner.success(f"Corrección del acta N.° {acta.numero} guardada (revisión {acta.revision}).", icon="✅")
+        anotar_si_es_equipo_nuevo(acta)
         dialogo_correccion(acta, pdf, nombre_pdf, resultado.ubicacion_pdf)
 
 

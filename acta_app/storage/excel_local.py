@@ -12,7 +12,7 @@ from pathlib import Path
 import pandas as pd
 from openpyxl import Workbook, load_workbook
 
-from acta_app import config
+from acta_app import config, equipos_nuevos
 from acta_app.models import Acta, ahora
 from acta_app.storage.base import (
     ActaDuplicadaError,
@@ -46,11 +46,16 @@ class RepositorioExcelLocal:
         ruta_excel: Path = config.EXCEL_MAESTRO_PATH,
         dir_pdf: Path = config.PDF_DIR,
         dir_firmas: Path | None = None,
+        ruta_equipos_nuevos: Path | None = None,
     ):
         self.ruta_excel = Path(ruta_excel)
         self.dir_pdf = Path(dir_pdf)
         # Firmas en PNG, para reutilizarlas al corregir un acta.
         self.dir_firmas = Path(dir_firmas) if dir_firmas else self.ruta_excel.parent / "firmas"
+        self.ruta_equipos_nuevos = (
+            Path(ruta_equipos_nuevos) if ruta_equipos_nuevos
+            else self.ruta_excel.parent / config.EQUIPOS_NUEVOS_PATH.name
+        )
 
     # ---------- Lectura ----------
     def existe(self, numero: str) -> bool:
@@ -98,6 +103,18 @@ class RepositorioExcelLocal:
 
     def leer_equipos(self) -> bytes | None:
         return None  # el catálogo local se lee directamente de catalogos/equipos.xlsx
+
+    def leer_equipos_nuevos(self) -> bytes | None:
+        return self.ruta_equipos_nuevos.read_bytes() if self.ruta_equipos_nuevos.exists() else None
+
+    def registrar_equipo_nuevo(self, acta: Acta, registrado_por: str) -> bool:
+        with _LOCK:
+            contenido = equipos_nuevos.agregar(self.leer_equipos_nuevos(), acta, registrado_por)
+            if contenido is None:
+                return False
+            self.ruta_equipos_nuevos.parent.mkdir(parents=True, exist_ok=True)
+            self.ruta_equipos_nuevos.write_bytes(contenido)
+            return True
 
     # ---------- Escritura ----------
     def guardar(self, acta: Acta, pdf: bytes, nombre_pdf: str) -> ResultadoGuardado:

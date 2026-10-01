@@ -243,3 +243,29 @@ def test_firmas_del_formato_anterior_se_ordenan_en_carpetas(repo, sp, acta_compl
     assert f"{CARPETA}/Firmas/2026-00051_cliente.png" not in sp.archivos
     assert repo.ordenar_firmas() == 0
     assert repo.obtener("2026-00051").firma_representante_png
+
+
+def test_equipo_nuevo_crea_equipos_nuevos_con_el_primero_y_no_duplica(repo, sp, acta_completa):
+    from acta_app.catalogo import Catalogo
+    from acta_app.equipos_nuevos import es_equipo_nuevo
+
+    ruta = f"{CARPETA}/Equipos_nuevos.xlsx"
+    assert repo.leer_equipos_nuevos() is None  # no existe hasta el primer equipo nuevo
+    assert repo.registrar_equipo_nuevo(acta_completa, "ana@sistemasanaliticos.com")
+    assert ruta in sp.archivos
+    assert not repo.registrar_equipo_nuevo(acta_completa, "otro")  # misma serie: no se repite
+
+    otra = acta_completa
+    otra.numero, otra.numero_serie, otra.equipo = "2026-00052", "SN-999", "Centrífuga"
+    assert repo.registrar_equipo_nuevo(otra, "ana@sistemasanaliticos.com")
+
+    ws = load_workbook(io.BytesIO(sp.archivos[ruta][0])).active
+    filas = list(ws.iter_rows(values_only=True))
+    assert filas[0][:6] == ("Descripcion", "Marca", "Modelo", "Serie", "Sedes", "Departamentos")
+    assert [f[3] for f in filas[1:]] == ["SN123", "SN-999"]
+    assert filas[2][6] == "2026-00052" and filas[2][8] == "ana@sistemasanaliticos.com"
+    assert ws.tables["TablaEquiposNuevos"].ref == "A1:J3"
+
+    # El autocompletado ya los conoce: deja de ser "nuevo".
+    catalogo = Catalogo.desde_bytes(repo.leer_equipos_nuevos())
+    assert catalogo.opciones("equipo", {}) and not es_equipo_nuevo(catalogo, otra)

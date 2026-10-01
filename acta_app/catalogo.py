@@ -78,6 +78,13 @@ class Catalogo:
         """Equipos.xlsx descargado de SharePoint."""
         return cls(_normalizar(pd.read_excel(io.BytesIO(datos), dtype=str)))
 
+    def unir(self, otro: Catalogo) -> Catalogo:
+        """Este catálogo más las filas de otro (p. ej. Equipos_nuevos.xlsx)."""
+        if otro.datos.empty:
+            return self
+        datos = pd.concat([self.datos, otro.datos], ignore_index=True).drop_duplicates()
+        return Catalogo(datos.reset_index(drop=True))
+
     def tiene(self, campo: str) -> bool:
         """¿El Excel trae valores para este campo? (p. ej. si ya incluye las sedes)."""
         return bool((self.datos[campo] != "").any())

@@ -24,7 +24,7 @@ from urllib.parse import quote, unquote, urlparse
 import pandas as pd
 from openpyxl import load_workbook
 
-from acta_app import config
+from acta_app import config, equipos_nuevos
 from acta_app.models import Acta, ahora
 from acta_app.storage.base import (
     ActaDuplicadaError,
@@ -86,6 +86,7 @@ class RepositorioSharePoint:
         excel: str = config.SHAREPOINT_EXCEL,
         carpeta_pdf: str = config.SHAREPOINT_CARPETA_PDF,
         equipos: str = config.SHAREPOINT_EQUIPOS,
+        equipos_nuevos: str = config.SHAREPOINT_EQUIPOS_NUEVOS,
         segundos_cache: float = 30,
     ):
         self.almacen = almacen
@@ -94,6 +95,7 @@ class RepositorioSharePoint:
         self.ruta_pdf = f"{self.carpeta}/{carpeta_pdf}"
         self.ruta_firmas = f"{self.carpeta}/{CARPETA_FIRMAS}"
         self.ruta_equipos = f"{self.carpeta}/{equipos}"
+        self.ruta_equipos_nuevos = f"{self.carpeta}/{equipos_nuevos}"
         # La app vuelve a dibujarse con cada cambio en el formulario: se evita descargar
         # el Excel en cada una. Al guardar siempre se lee la versión más reciente.
         self._segundos_cache = segundos_cache
@@ -141,6 +143,29 @@ class RepositorioSharePoint:
         """Catálogo Equipos.xlsx para el autocompletado (None si aún no está en la carpeta)."""
         archivo = self.almacen.leer(self.ruta_equipos)
         return archivo.datos if archivo else None
+
+    def leer_equipos_nuevos(self) -> bytes | None:
+        archivo = self.almacen.leer(self.ruta_equipos_nuevos)
+        return archivo.datos if archivo else None
+
+    def registrar_equipo_nuevo(self, acta: Acta, registrado_por: str) -> bool:
+        for _ in range(INTENTOS_POR_CONFLICTO):
+            archivo = self.almacen.leer(self.ruta_equipos_nuevos)
+            contenido = equipos_nuevos.agregar(archivo.datos if archivo else None, acta, registrado_por)
+            if contenido is None:
+                return False
+            try:
+                self.almacen.escribir(
+                    self.ruta_equipos_nuevos, contenido,
+                    version_esperada=archivo.version if archivo else None,
+                    solo_si_no_existe=archivo is None,
+                )
+                return True
+            except ConflictoDeVersion:
+                continue  # otra persona lo cambió: se vuelve a leer y se reintenta
+        raise AlmacenamientoError(
+            "No se pudo actualizar Equipos_nuevos.xlsx (está cambiando o abierto en edición)."
+        )
 
     # ---------- Escritura ----------
     def guardar(self, acta: Acta, pdf: bytes, nombre_pdf: str) -> ResultadoGuardado:
@@ -225,6 +250,12 @@ class RepositorioSharePoint:
             "Equipos.xlsx encontrado (autocompletado desde SharePoint)."
             if self.almacen.enlace(self.ruta_equipos)
             else "Equipos.xlsx no está en la carpeta: el autocompletado de equipos queda vacío.",
+        ))
+        pasos.append((
+            True,
+            "Equipos_nuevos.xlsx encontrado (equipos por revisar)."
+            if self.almacen.enlace(self.ruta_equipos_nuevos)
+            else "Equipos_nuevos.xlsx aún no existe (se creará con el primer equipo nuevo).",
         ))
         return pasos
 

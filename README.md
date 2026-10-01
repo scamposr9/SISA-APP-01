@@ -81,6 +81,10 @@ client_secret = "<VALOR del client secret (no su ID)>"
 - Si otra persona guarda al mismo tiempo, la app lo detecta (eTag) y reintenta sin perder filas.
 - `Equipos.xlsx` en la misma carpeta alimenta el autocompletado (se relee cada 5 minutos o
   con «Actualizar catálogo de equipos»). Los datos de la empresa no se guardan en GitHub.
+- **Equipos nuevos:** si se guarda un acta cuya serie no está en `Equipos.xlsx`, el equipo se
+  anota en `Equipos_nuevos.xlsx` (misma carpeta; se crea con el primero), con el N.° de acta y
+  quién lo registró. El autocompletado ya lo sugiere; una persona revisa esa lista, copia las
+  filas correctas a `Equipos.xlsx` (las 6 primeras columnas son las mismas) y las borra de la lista.
 - «Conexión con SharePoint → Probar conexión», al final de la app, verifica acceso y escritura.
 - La app usa el permiso de aplicación **Sites.Selected**: TI debe asignarle escritura sobre el sitio.
 

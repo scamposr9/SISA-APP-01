@@ -66,6 +66,15 @@ class RepositorioActas(Protocol):
         """Catálogo de equipos guardado junto a las actas, si existe."""
         ...
 
+    def leer_equipos_nuevos(self) -> bytes | None:
+        """Equipos_nuevos.xlsx (equipos fuera del catálogo, por revisar), si existe."""
+        ...
+
+    def registrar_equipo_nuevo(self, acta: Acta, registrado_por: str) -> bool:
+        """Anota el equipo del acta en Equipos_nuevos.xlsx (lo crea si no existe).
+        False si su serie ya estaba anotada."""
+        ...
+
 
 def normalizar_numero(numero: str) -> str:
     """'2026-00051 ' y '2026-00051' son la misma acta."""
