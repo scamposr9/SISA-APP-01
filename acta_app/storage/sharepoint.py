@@ -5,7 +5,7 @@ Estructura en la carpeta configurada (por defecto «16. Analisis de Datos/Actas�
     Actas.xlsx        Excel maestro (lo crea la app al guardar la primera acta)
     Equipos.xlsx      catálogo para el autocompletado (lo mantiene el equipo)
     PDF/              un PDF por acta y por revisión
-    Firmas/           firmas en PNG, para reutilizarlas al corregir un acta
+    Firmas/<N.°>/     cliente.png y representante.png de cada acta (para corregirla)
 
 `RepositorioSharePoint` solo necesita un `AlmacenArchivos` (leer/escribir archivos con
 control de versión). `AlmacenGraph` lo implementa con Microsoft Graph usando la
@@ -267,12 +267,39 @@ class RepositorioSharePoint:
         return self.almacen.escribir(ruta, datos) or self.almacen.enlace(ruta) or ""
 
     def _ruta_firma(self, numero: str, quien: str) -> str:
-        seguro = "".join(ch if ch.isalnum() or ch == "-" else "_" for ch in numero)
-        return f"{self.ruta_firmas}/{seguro}_{quien}.png"
+        """Firmas/<N.°>/cliente.png: una subcarpeta por acta."""
+        return f"{self.ruta_firmas}/{_nombre_seguro(numero)}/{quien}.png"
+
+    def _ruta_firma_anterior(self, numero: str, quien: str) -> str:
+        """Formato hasta la versión 0.15: todas sueltas en Firmas/ (<N.°>_cliente.png)."""
+        return f"{self.ruta_firmas}/{_nombre_seguro(numero)}_{quien}.png"
 
     def _leer_firma(self, numero: str, quien: str) -> bytes | None:
         archivo = self.almacen.leer(self._ruta_firma(numero, quien))
-        return archivo.datos if archivo else None
+        if archivo:
+            return archivo.datos
+        return self._mover_firma_anterior(numero, quien)
+
+    def _mover_firma_anterior(self, numero: str, quien: str) -> bytes | None:
+        """Si la firma está en el formato anterior, la pasa a la subcarpeta del acta."""
+        anterior = self._ruta_firma_anterior(numero, quien)
+        archivo = self.almacen.leer(anterior)
+        if archivo is None:
+            return None
+        self._subir(self._ruta_firma(numero, quien), archivo.datos)
+        self.almacen.eliminar(anterior)
+        return archivo.datos
+
+    def ordenar_firmas(self) -> int:
+        """Pasa las firmas sueltas de las actas registradas a Firmas/<N.°>/. Devuelve
+        cuántos archivos movió."""
+        movidas = 0
+        with self._lock:
+            for numero in self.numeros():
+                for quien in ("cliente", "representante"):
+                    if self.almacen.leer(self._ruta_firma(numero, quien)) is None:
+                        movidas += self._mover_firma_anterior(numero, quien) is not None
+        return movidas
 
     def _subir_firmas(self, acta: Acta) -> None:
         for quien, png in (("cliente", acta.firma_cliente_png), ("representante", acta.firma_representante_png)):
@@ -432,6 +459,11 @@ class AlmacenGraph:
 
 class _NoEncontrado(AlmacenamientoError):
     pass
+
+
+def _nombre_seguro(numero: str) -> str:
+    """N.° de acta apto para nombre de archivo o carpeta."""
+    return "".join(ch if ch.isalnum() or ch == "-" else "_" for ch in numero)
 
 
 def _ruta_url(ruta: str) -> str:

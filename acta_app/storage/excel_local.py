@@ -175,18 +175,24 @@ class RepositorioExcelLocal:
         return f"{self._carpeta_pdf_relativa()}/{nombre_pdf}"
 
     def _ruta_firma(self, numero: str, quien: str) -> Path:
+        """firmas/<N.°>/cliente.png: una subcarpeta por acta (igual que en SharePoint)."""
         seguro = "".join(ch if ch.isalnum() or ch == "-" else "_" for ch in numero)
-        return self.dir_firmas / f"{seguro}_{quien}.png"
+        return self.dir_firmas / seguro / f"{quien}.png"
 
     def _leer_firma(self, numero: str, quien: str) -> bytes | None:
         ruta = self._ruta_firma(numero, quien)
-        return ruta.read_bytes() if ruta.exists() else None
+        anterior = ruta.parent.with_name(f"{ruta.parent.name}_{quien}.png")  # hasta la 0.15
+        for candidata in (ruta, anterior):
+            if candidata.exists():
+                return candidata.read_bytes()
+        return None
 
     def _guardar_firmas(self, acta: Acta) -> None:
-        self.dir_firmas.mkdir(parents=True, exist_ok=True)
         for quien, png in (("cliente", acta.firma_cliente_png), ("representante", acta.firma_representante_png)):
             if png:
-                self._ruta_firma(acta.numero, quien).write_bytes(png)
+                ruta = self._ruta_firma(acta.numero, quien)
+                ruta.parent.mkdir(parents=True, exist_ok=True)
+                ruta.write_bytes(png)
 
     def _registros(self) -> list[Registro]:
         if not self.ruta_excel.exists():

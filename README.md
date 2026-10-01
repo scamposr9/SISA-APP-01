@@ -77,7 +77,7 @@ client_secret = "<VALOR del client secret (no su ID)>"
 ```
 
 - `Actas.xlsx` lo crea la app con la primera acta; los PDF van a `PDF/` y las firmas a
-  `Firmas/`. Los enlaces del Excel abren cada PDF en SharePoint.
+  `Firmas/<N.° de acta>/` (cliente.png y representante.png). Los enlaces del Excel abren cada PDF en SharePoint.
 - Si otra persona guarda al mismo tiempo, la app lo detecta (eTag) y reintenta sin perder filas.
 - `Equipos.xlsx` en la misma carpeta alimenta el autocompletado (se relee cada 5 minutos o
   con «Actualizar catálogo de equipos»). Los datos de la empresa no se guardan en GitHub.

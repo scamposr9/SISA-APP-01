@@ -265,6 +265,18 @@ def seccion_conexion() -> None:
         if c2.button("Actualizar catálogo de equipos", width="stretch"):
             refrescar_catalogo()
             st.success("Se volverá a leer Equipos.xlsx de SharePoint.", icon="✅")
+        if st.button("Ordenar firmas antiguas en carpetas por acta", width="stretch"):
+            try:
+                with st.spinner("Moviendo firmas…"):
+                    movidas = obtener_repositorio().ordenar_firmas()
+            except AlmacenamientoError as exc:
+                st.error(str(exc), icon="❌")
+            else:
+                st.success(
+                    f"Listo: {movidas} firma(s) movidas a Firmas/<N.° de acta>/."
+                    if movidas else "No había firmas sueltas por ordenar.",
+                    icon="✅",
+                )
 
 
 encabezado()
