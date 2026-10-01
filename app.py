@@ -298,7 +298,7 @@ def seccion_conexion() -> None:
             st.success("Se volverá a leer Equipos.xlsx de SharePoint.", icon="✅")
         if st.button("Ver protocolos de mantenimiento preventivo detectados", width="stretch"):
             mostrar_protocolos()
-        if st.button("Ordenar firmas antiguas en carpetas por acta", width="stretch"):
+        if st.button("Pasar firmas antiguas a «Firmas Actas»", width="stretch"):
             try:
                 with st.spinner("Moviendo firmas…"):
                     movidas = obtener_repositorio().ordenar_firmas()
@@ -306,7 +306,7 @@ def seccion_conexion() -> None:
                 st.error(str(exc), icon="❌")
             else:
                 st.success(
-                    f"Listo: {movidas} firma(s) movidas a Firmas/<N.° de acta>/."
+                    f"Listo: {movidas} firma(s) movidas a «Firmas Actas/<N.° de acta>/»."
                     if movidas else "No había firmas sueltas por ordenar.",
                     icon="✅",
                 )

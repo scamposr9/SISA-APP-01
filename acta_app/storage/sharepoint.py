@@ -5,7 +5,7 @@ Estructura en la carpeta configurada (por defecto «16. Analisis de Datos/Actas�
     Actas.xlsx        Excel maestro (lo crea la app al guardar la primera acta)
     Equipos.xlsx      catálogo para el autocompletado (lo mantiene el equipo)
     PDF/              un PDF por acta y por revisión
-    Firmas/<N.°>/     cliente.png y representante.png de cada acta (para corregirla)
+    Firmas Actas/<N.°>/  cliente.png y representante.png de cada acta (para corregirla)
 
 `RepositorioSharePoint` solo necesita un `AlmacenArchivos` (leer/escribir archivos con
 control de versión). `AlmacenGraph` lo implementa con Microsoft Graph usando la
@@ -43,7 +43,8 @@ from acta_app.storage.esquema import (
 )
 from acta_app.storage.excel_formato import HOJA_ACTAS, construir_libro, leer_registros
 
-CARPETA_FIRMAS = "Firmas"
+CARPETA_FIRMAS = "Firmas Actas"
+CARPETA_FIRMAS_ANTERIOR = "Firmas"  # nombre hasta la versión 0.18
 INTENTOS_POR_CONFLICTO = 4
 
 
@@ -95,6 +96,7 @@ class RepositorioSharePoint:
         self.ruta_excel = f"{self.carpeta}/{excel}"
         self.ruta_pdf = f"{self.carpeta}/{carpeta_pdf}"
         self.ruta_firmas = f"{self.carpeta}/{CARPETA_FIRMAS}"
+        self.ruta_firmas_anterior = f"{self.carpeta}/{CARPETA_FIRMAS_ANTERIOR}"
         self.ruta_equipos = f"{self.carpeta}/{equipos}"
         self.ruta_equipos_nuevos = f"{self.carpeta}/{equipos_nuevos}"
         self.ruta_protocolos = f"{self.carpeta}/{protocolos}"
@@ -311,12 +313,18 @@ class RepositorioSharePoint:
         return self.almacen.escribir(ruta, datos) or self.almacen.enlace(ruta) or ""
 
     def _ruta_firma(self, numero: str, quien: str) -> str:
-        """Firmas/<N.°>/cliente.png: una subcarpeta por acta."""
+        """Firmas Actas/<N.°>/cliente.png: una subcarpeta por acta."""
         return f"{self.ruta_firmas}/{_nombre_seguro(numero)}/{quien}.png"
 
-    def _ruta_firma_anterior(self, numero: str, quien: str) -> str:
-        """Formato hasta la versión 0.15: todas sueltas en Firmas/ (<N.°>_cliente.png)."""
-        return f"{self.ruta_firmas}/{_nombre_seguro(numero)}_{quien}.png"
+    def _rutas_firma_anteriores(self, numero: str, quien: str) -> list[str]:
+        """Dónde pudo quedar con versiones anteriores: Firmas/<N.°>/ (hasta la 0.18) o
+        suelta como <N.°>_cliente.png (hasta la 0.15), en cualquiera de las dos carpetas."""
+        seguro = _nombre_seguro(numero)
+        return [
+            f"{self.ruta_firmas_anterior}/{seguro}/{quien}.png",
+            f"{self.ruta_firmas}/{seguro}_{quien}.png",
+            f"{self.ruta_firmas_anterior}/{seguro}_{quien}.png",
+        ]
 
     def _leer_firma(self, numero: str, quien: str) -> bytes | None:
         archivo = self.almacen.leer(self._ruta_firma(numero, quien))
@@ -325,17 +333,18 @@ class RepositorioSharePoint:
         return self._mover_firma_anterior(numero, quien)
 
     def _mover_firma_anterior(self, numero: str, quien: str) -> bytes | None:
-        """Si la firma está en el formato anterior, la pasa a la subcarpeta del acta."""
-        anterior = self._ruta_firma_anterior(numero, quien)
-        archivo = self.almacen.leer(anterior)
-        if archivo is None:
-            return None
-        self._subir(self._ruta_firma(numero, quien), archivo.datos)
-        self.almacen.eliminar(anterior)
-        return archivo.datos
+        """Si la firma está donde la dejaba una versión anterior, la pasa a
+        Firmas Actas/<N.°>/."""
+        for anterior in self._rutas_firma_anteriores(numero, quien):
+            archivo = self.almacen.leer(anterior)
+            if archivo is not None:
+                self._subir(self._ruta_firma(numero, quien), archivo.datos)
+                self.almacen.eliminar(anterior)
+                return archivo.datos
+        return None
 
     def ordenar_firmas(self) -> int:
-        """Pasa las firmas sueltas de las actas registradas a Firmas/<N.°>/. Devuelve
+        """Pasa las firmas de las actas registradas a Firmas Actas/<N.°>/. Devuelve
         cuántos archivos movió."""
         movidas = 0
         with self._lock:
