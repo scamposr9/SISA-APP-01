@@ -31,7 +31,6 @@ from acta_app.validation import validar_acta
 
 st.set_page_config(
     page_title="Acta de Atención Digital - Sistemas Analíticos",
-    page_icon=str(config.LOGO_PATH),
     layout="centered",
 )
 aplicar_estilos()

@@ -59,10 +59,8 @@ def cargar_en_formulario(acta: Acta) -> None:
         "marca": acta.marca or None,
         "modelo": acta.modelo or None,
         "serie": acta.numero_serie or None,
-        "tipo_servicio": acta.tipo_servicio,
-        # Actas anteriores con «Otro» escrito a mano: hay que elegir una de las opciones.
-        "tipo_servicio_otro": acta.tipo_servicio_otro
-        if acta.tipo_servicio_otro in config.TIPOS_SERVICIO_OTRO else None,
+        # Actas anteriores con «Otro» escrito a mano: al corregirlas hay que elegir una opción.
+        "tipo_servicio": acta.tipo_servicio if acta.tipo_servicio in config.TIPOS_SERVICIO else None,
         "hora_inicio_trabajo": acta.hora_inicio_trabajo,
         "hora_fin_trabajo": acta.hora_fin_trabajo,
         "estado_final": acta.estado_final,
@@ -128,11 +126,6 @@ def _campo_catalogo(contenedor, texto: str, campo: str) -> str:
     return limpiar(valor)
 
 
-def _limpiar_otro() -> None:
-    if st.session_state.get(k("tipo_servicio")) != config.TIPO_SERVICIO_OTRO:
-        st.session_state[k("tipo_servicio_otro")] = None
-
-
 def formulario_acta() -> Acta:
     """Dibuja el formulario. Si hay un acta cargada para corregir, el N.° no se puede
     cambiar y se pueden conservar sus firmas originales."""
@@ -167,25 +160,14 @@ def formulario_acta() -> Acta:
 
     # ---------- Tipo de servicio ----------
     with seccion("tipo_servicio", "Tipo de servicio"):
-        c1, c2 = st.columns([2, 1], vertical_alignment="bottom")
-        acta.tipo_servicio = c1.radio(
+        acta.tipo_servicio = st.radio(
             "Tipo de servicio",
             config.TIPOS_SERVICIO,
             index=None,
             horizontal=True,
             key=k("tipo_servicio"),
-            on_change=_limpiar_otro,
             label_visibility="collapsed",
         )
-        acta.tipo_servicio_otro = c2.selectbox(
-            "Otro",
-            config.TIPOS_SERVICIO_OTRO,
-            index=None,
-            key=k("tipo_servicio_otro"),
-            placeholder="Elige el tipo…",
-            disabled=acta.tipo_servicio != config.TIPO_SERVICIO_OTRO,
-            label_visibility="collapsed",
-        ) or ""
 
     # ---------- Antecedentes ----------
     with seccion("antecedentes", "Antecedentes iniciales"):

@@ -98,8 +98,8 @@ def test_pdf_muestra_la_fecha_y_solo_las_opciones_marcadas(acta_completa):
         assert no_marcada not in texto, no_marcada
 
 
-def test_tipo_otro_muestra_solo_la_opcion_elegida(acta_completa):
-    acta_completa.tipo_servicio, acta_completa.tipo_servicio_otro = "Otro", "Instalación"
+def test_tipo_instalacion_muestra_solo_la_opcion_elegida(acta_completa):
+    acta_completa.tipo_servicio = "Instalación"
     texto = _texto(generar_pdf(acta_completa))
     assert "Instalación" in texto
     for no_marcada in ["Otro", "Presite", "Actualización", "Mant. Preventivo", "Mant. Correctivo"]:

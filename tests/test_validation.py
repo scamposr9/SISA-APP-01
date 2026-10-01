@@ -21,8 +21,9 @@ def test_fila_de_articulo_incompleta_es_error(acta_completa):
     ]
 
 
-def test_otro_exige_elegir_una_opcion(acta_completa):
-    acta_completa.tipo_servicio, acta_completa.tipo_servicio_otro = "Otro", ""
-    assert any("Presite" in e for e in validar_acta(acta_completa))
-    acta_completa.tipo_servicio_otro = "Actualización"
-    assert validar_acta(acta_completa) == []
+def test_tipo_de_servicio_debe_ser_una_de_las_cinco_opciones(acta_completa):
+    for tipo in ["Mant. Preventivo", "Mant. Correctivo", "Presite", "Instalación", "Actualización"]:
+        acta_completa.tipo_servicio = tipo
+        assert validar_acta(acta_completa) == []
+    acta_completa.tipo_servicio = "Otro"
+    assert "Tipo de servicio" in validar_acta(acta_completa)

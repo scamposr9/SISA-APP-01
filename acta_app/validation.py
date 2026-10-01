@@ -26,10 +26,8 @@ def validar_acta(acta: Acta) -> list[str]:
     ]
     errores += [etiqueta for valor, etiqueta in obligatorios if not valor]
 
-    if not acta.tipo_servicio:
+    if acta.tipo_servicio not in config.TIPOS_SERVICIO:
         errores.append("Tipo de servicio")
-    elif acta.tipo_servicio == config.TIPO_SERVICIO_OTRO and not acta.tipo_servicio_otro:
-        errores.append("Tipo de servicio (elige Presite, Instalación o Actualización)")
     if not acta.estado_final:
         errores.append("Estado final del servicio")
 

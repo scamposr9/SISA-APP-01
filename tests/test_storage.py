@@ -253,9 +253,18 @@ def test_enlace_hyperlink_ida_y_vuelta():
     assert leer_hipervinculo("Acta.pdf") is None
 
 
-def test_tipo_otro_con_opcion_se_guarda_y_se_recupera(repo, acta_completa):
-    acta_completa.tipo_servicio, acta_completa.tipo_servicio_otro = "Otro", "Presite"
+def test_tipo_presite_se_guarda_y_se_recupera(repo, acta_completa):
+    acta_completa.tipo_servicio = "Presite"
     repo.guardar(acta_completa, b"pdf", "1.pdf")
     assert _fila(_hoja(repo), 1)["Tipo de Servicio"] == "Presite"
     acta = repo.obtener(acta_completa.numero)
-    assert (acta.tipo_servicio, acta.tipo_servicio_otro) == ("Otro", "Presite")
+    assert (acta.tipo_servicio, acta.tipo_servicio_otro) == ("Presite", "")
+
+
+def test_acta_anterior_otro_con_opcion_se_lee_como_la_opcion(acta_completa):
+    from acta_app.storage.esquema import acta_desde_registro
+
+    registro = registro_desde_acta(acta_completa)
+    registro.valores["Tipo de Servicio"] = "Otro: Instalación"
+    acta = acta_desde_registro(registro)
+    assert (acta.tipo_servicio, acta.tipo_servicio_otro) == ("Instalación", "")

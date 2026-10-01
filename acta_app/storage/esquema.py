@@ -160,11 +160,11 @@ def acta_desde_registro(registro: Registro) -> Acta:
 
     tipo = texto("Tipo de Servicio")
     tipo_otro = ""
-    if tipo in config.TIPOS_SERVICIO_OTRO:
-        tipo, tipo_otro = config.TIPO_SERVICIO_OTRO, tipo
-    elif tipo.startswith(config.TIPO_SERVICIO_OTRO):
+    if tipo.startswith(config.TIPO_SERVICIO_OTRO + ":"):  # actas anteriores
         tipo, _, tipo_otro = tipo.partition(":")
         tipo, tipo_otro = config.TIPO_SERVICIO_OTRO, tipo_otro.strip()
+        if tipo_otro in config.TIPOS_SERVICIO:  # p. ej. «Otro: Presite» -> Presite
+            tipo, tipo_otro = tipo_otro, ""
 
     return Acta(
         numero=texto("N° de Acta"),
