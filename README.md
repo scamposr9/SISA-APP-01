@@ -81,6 +81,12 @@ client_secret = "<VALOR del client secret (no su ID)>"
 - Si otra persona guarda al mismo tiempo, la app lo detecta (eTag) y reintenta sin perder filas.
 - `Equipos.xlsx` en la misma carpeta alimenta el autocompletado (se relee cada 5 minutos o
   con «Actualizar catálogo de equipos»). Los datos de la empresa no se guardan en GitHub.
+- **Mantenimiento preventivo:** al elegir «Mant. Preventivo», Antecedentes iniciales lleva
+  «Mantenimiento Preventivo» y, según la marca y el modelo del equipo, «Acciones realizadas»
+  muestra el checklist de la columna «Parte mantenida» de `Mantenimientos Preventivos.xlsx`
+  (se ignoran serie, clientes, cronograma y OBS). En el PDF cada actividad sale con su casilla
+  marcada (X) o vacía; en el Excel, como «[X] …» / «[ ] …» en las columnas de Acciones.
+  «Conexión con SharePoint → Ver protocolos… detectados» muestra lo que la app leyó del Excel.
 - **Equipos nuevos:** si se guarda un acta cuya serie no está en `Equipos.xlsx`, el equipo se
   anota en `Equipos_nuevos.xlsx` (misma carpeta; se crea con el primero), con el N.° de acta y
   quién lo registró. El autocompletado ya lo sugiere; una persona revisa esa lista, copia las

@@ -66,6 +66,10 @@ class RepositorioActas(Protocol):
         """Catálogo de equipos guardado junto a las actas, si existe."""
         ...
 
+    def leer_protocolos(self) -> bytes | None:
+        """Mantenimientos Preventivos.xlsx (protocolos por marca/modelo), si existe."""
+        ...
+
     def leer_equipos_nuevos(self) -> bytes | None:
         """Equipos_nuevos.xlsx (equipos fuera del catálogo, por revisar), si existe."""
         ...

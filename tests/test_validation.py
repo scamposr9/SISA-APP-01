@@ -27,3 +27,12 @@ def test_tipo_de_servicio_debe_ser_una_de_las_cinco_opciones(acta_completa):
         assert validar_acta(acta_completa) == []
     acta_completa.tipo_servicio = "Otro"
     assert "Tipo de servicio" in validar_acta(acta_completa)
+
+
+def test_con_checklist_las_acciones_escritas_son_opcionales(acta_completa):
+    from acta_app.models import ActividadChecklist
+
+    acta_completa.acciones = []
+    assert "Acciones realizadas" in validar_acta(acta_completa)
+    acta_completa.checklist = [ActividadChecklist("Limpieza", False)]
+    assert validar_acta(acta_completa) == []

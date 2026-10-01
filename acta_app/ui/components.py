@@ -72,6 +72,33 @@ def precargar_lista(clave: str, valores: list[str]) -> None:
         st.session_state[f"{clave}_txt_{i}"] = valor
 
 
+def poner_primer_punto(clave: str, texto: str) -> None:
+    """Deja `texto` como primer punto de la lista si aún no está (usar desde un callback)."""
+    ids = st.session_state.get(f"{clave}_ids")
+    if ids is None:
+        precargar_lista(clave, [texto])
+        return
+    if any(st.session_state.get(f"{clave}_txt_{i}", "").strip() == texto for i in ids):
+        return
+    if ids and not st.session_state.get(f"{clave}_txt_{ids[0]}", "").strip():
+        st.session_state[f"{clave}_txt_{ids[0]}"] = texto
+        return
+    nuevo = st.session_state[f"{clave}_contador"]
+    st.session_state[f"{clave}_contador"] = nuevo + 1
+    st.session_state[f"{clave}_txt_{nuevo}"] = texto
+    ids.insert(0, nuevo)
+
+
+def quitar_punto(clave: str, texto: str) -> None:
+    """Quita de la lista los puntos que sean exactamente `texto` (usar desde un callback)."""
+    ids = st.session_state.get(f"{clave}_ids") or []
+    for i in [i for i in ids if st.session_state.get(f"{clave}_txt_{i}", "").strip() == texto]:
+        st.session_state.pop(f"{clave}_txt_{i}", None)
+        ids.remove(i)
+    if not ids:
+        precargar_lista(clave, [""])
+
+
 def lista_dinamica(clave: str, placeholder: str) -> list[str]:
     """Lista numerada de textos con botones '+ Agregar punto' y '×' para quitar.
 

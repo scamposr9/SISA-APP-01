@@ -268,3 +268,18 @@ def test_acta_anterior_otro_con_opcion_se_lee_como_la_opcion(acta_completa):
     registro.valores["Tipo de Servicio"] = "Otro: Instalación"
     acta = acta_desde_registro(registro)
     assert (acta.tipo_servicio, acta.tipo_servicio_otro) == ("Instalación", "")
+
+
+def test_checklist_se_guarda_con_su_estado_y_se_recupera(repo, acta_completa):
+    from acta_app.models import ActividadChecklist
+
+    acta_completa.checklist = [ActividadChecklist("Limpieza general", True),
+                               ActividadChecklist("Cambio de filtro", False)]
+    repo.guardar(acta_completa, b"pdf", "1.pdf")
+    fila = _fila(_hoja(repo), 1)
+    assert (fila["Acción 1"], fila["Acción 2"], fila["Acción 3"]) == (
+        "[X] Limpieza general", "[ ] Cambio de filtro", "Se revisó la bomba",
+    )
+    acta = repo.obtener(acta_completa.numero)
+    assert acta.checklist == acta_completa.checklist
+    assert acta.acciones == ["Se revisó la bomba"]

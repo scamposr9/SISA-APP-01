@@ -26,6 +26,7 @@ from acta_app.ui.form import (
     salir_de_correccion,
 )
 from acta_app.equipos_nuevos import es_equipo_nuevo
+from acta_app.protocolos import Protocolos
 from acta_app.ui.catalogo_ui import cargar_catalogo, refrescar_catalogo
 from acta_app.ui.styles import aplicar_estilos
 from acta_app.validation import validar_acta
@@ -245,6 +246,35 @@ def seccion_base_de_datos() -> None:
         )
 
 
+def mostrar_protocolos() -> None:
+    """Lo que la app entendió de Mantenimientos Preventivos.xlsx, para verificarlo."""
+    try:
+        datos = obtener_repositorio().leer_protocolos()
+        protocolos = Protocolos.desde_bytes(datos) if datos else None
+    except Exception as exc:  # Excel ilegible o sin conexión
+        st.error(f"No se pudo leer «{config.SHAREPOINT_PROTOCOLOS}»: {exc}", icon="❌")
+        return
+    if protocolos is None:
+        st.warning(f"«{config.SHAREPOINT_PROTOCOLOS}» no está en la carpeta de actas.", icon="⚠️")
+        return
+    if not protocolos.lista:
+        st.warning(
+            "Se abrió el Excel pero no se encontró ningún protocolo: revisa que tenga MARCA, "
+            "MODELO y una columna «Parte mantenida».",
+            icon="⚠️",
+        )
+        return
+    st.success(f"{len(protocolos.lista)} protocolo(s) detectado(s).", icon="✅")
+    st.dataframe(
+        [
+            {"Hoja": p.hoja, "Equipo": p.equipo, "Marca": p.marca, "Modelo": p.modelo,
+             "Actividades": len(p.actividades), "Primera actividad": p.actividades[0]}
+            for p in protocolos.lista
+        ],
+        hide_index=True,
+    )
+
+
 def seccion_conexion() -> None:
     """Estado del almacenamiento y verificación de la conexión con SharePoint."""
     if not usa_sharepoint():
@@ -266,6 +296,8 @@ def seccion_conexion() -> None:
         if c2.button("Actualizar catálogo de equipos", width="stretch"):
             refrescar_catalogo()
             st.success("Se volverá a leer Equipos.xlsx de SharePoint.", icon="✅")
+        if st.button("Ver protocolos de mantenimiento preventivo detectados", width="stretch"):
+            mostrar_protocolos()
         if st.button("Ordenar firmas antiguas en carpetas por acta", width="stretch"):
             try:
                 with st.spinner("Moviendo firmas…"):

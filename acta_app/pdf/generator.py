@@ -300,6 +300,43 @@ def _lista(lz: _Lienzo, titulo: str, puntos: list[str]) -> None:
     lz.y += 3
 
 
+def _acciones(lz: _Lienzo, acta: Acta) -> None:
+    """Acciones realizadas: primero el checklist del mantenimiento preventivo (casilla con X
+    si se realizó, vacía si no) y luego las acciones escritas a mano, numeradas."""
+    if not acta.checklist:
+        _lista(lz, "Acciones realizadas", acta.acciones)
+        return
+    lz.asegurar_espacio(10)
+    lz.fuente(BOLD, 9.5, NAVY)
+    lz.texto(MARGIN_X, lz.y, "Acciones realizadas")
+    lz.y += 5.5
+    sangria = 6
+    for actividad in acta.checklist:
+        lz.fuente(REGULAR, 9, INK)
+        lineas = lz.partir(actividad.texto, CONTENT_W - sangria)
+        if lz.y + 6 > LIMITE_INFERIOR:
+            lz.nueva_pagina()
+        _casilla(lz, MARGIN_X, lz.y, marcada=actividad.hecha)
+        for linea in lineas:
+            if lz.y + 6 > LIMITE_INFERIOR:
+                lz.nueva_pagina()
+            lz.fuente(REGULAR, 9, INK)
+            lz.texto(MARGIN_X + sangria, lz.y, linea)
+            lz.y += 5
+        lz.y += 0.8
+    if acta.acciones:
+        lz.y += 1
+        lz.fuente(REGULAR, 9, INK)
+        for i, accion in enumerate(acta.acciones, start=1):
+            for linea in lz.partir(f"{i}. {accion}", CONTENT_W):
+                if lz.y + 6 > LIMITE_INFERIOR:
+                    lz.nueva_pagina()
+                    lz.fuente(REGULAR, 9, INK)
+                lz.texto(MARGIN_X, lz.y, linea)
+                lz.y += 5
+    lz.y += 3
+
+
 def _horas(lz: _Lienzo, acta: Acta) -> None:
     lz.asegurar_espacio(8)
     lz.fuente(REGULAR, 9, GRIS_ETIQUETA)
@@ -397,7 +434,7 @@ def generar_pdf(acta: Acta) -> bytes:
     _tipo_servicio(lz, acta)
     _lista(lz, "Antecedentes iniciales", acta.antecedentes)
     _horas(lz, acta)
-    _lista(lz, "Acciones realizadas", acta.acciones)
+    _acciones(lz, acta)
     _estado_final(lz, acta)
     _articulos(lz, acta)
     _lista(lz, "Observaciones y/o recomendaciones", acta.observaciones)

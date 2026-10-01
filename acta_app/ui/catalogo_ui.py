@@ -6,6 +6,7 @@ import streamlit as st
 
 from acta_app import config
 from acta_app.catalogo import Catalogo
+from acta_app.protocolos import Protocolos
 from acta_app.storage import AlmacenamientoError, obtener_repositorio, usa_sharepoint
 
 
@@ -53,7 +54,22 @@ def cargar_catalogo() -> Catalogo:
     return catalogo.unir(nuevos) if nuevos is not None else catalogo
 
 
+@st.cache_data(show_spinner=False, ttl=300)
+def _cargar_protocolos() -> Protocolos:
+    datos = obtener_repositorio().leer_protocolos()
+    return Protocolos.desde_bytes(datos) if datos else Protocolos()
+
+
+def cargar_protocolos() -> Protocolos:
+    """Protocolos de Mantenimientos Preventivos.xlsx (se refrescan cada 5 minutos)."""
+    try:
+        return _cargar_protocolos()
+    except Exception:  # sin conexión o Excel ilegible: el formulario sigue sin checklist
+        return Protocolos()
+
+
 def refrescar_catalogo() -> None:
+    _cargar_protocolos.clear()
     _cargar_sharepoint.clear()
     _cargar_local.clear()
     _cargar_equipos_nuevos.clear()

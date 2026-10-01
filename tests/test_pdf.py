@@ -110,3 +110,13 @@ def test_tipo_otro_de_actas_anteriores_muestra_su_especificacion(acta_completa):
     acta_completa.tipo_servicio, acta_completa.tipo_servicio_otro = "Otro", "Calibración anual"
     texto = _texto(generar_pdf(acta_completa))
     assert "Otro: Calibración anual" in texto and "Mant. Preventivo" not in texto
+
+
+def test_checklist_en_acciones_realizadas(acta_completa):
+    from acta_app.models import ActividadChecklist
+
+    acta_completa.checklist = [ActividadChecklist("Limpieza general del equipo", True),
+                               ActividadChecklist("Revisión de escobillas", False)]
+    texto = _texto(generar_pdf(acta_completa))
+    assert "Limpieza general del equipo" in texto and "Revisión de escobillas" in texto
+    assert "1. Se revisó la bomba" in texto  # las acciones escritas siguen, numeradas

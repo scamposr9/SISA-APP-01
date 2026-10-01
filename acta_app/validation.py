@@ -33,7 +33,7 @@ def validar_acta(acta: Acta) -> list[str]:
 
     listas = [
         (acta.antecedentes, "Antecedentes iniciales"),
-        (acta.acciones, "Acciones realizadas"),
+        (acta.acciones or acta.checklist, "Acciones realizadas"),
         (acta.observaciones, "Observaciones y/o recomendaciones"),
     ]
     errores += [etiqueta for puntos, etiqueta in listas if not puntos]

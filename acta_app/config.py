@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 
 # Versión visible al pie de la app. Además se muestra el commit de GitHub desplegado
 # (ver version_desplegada), que cambia solo con cada actualización.
-APP_VERSION = "0.17.0"
+APP_VERSION = "0.18.0"
 
 # El servidor (p. ej. Streamlit Cloud) corre en UTC; fechas y horas se toman en hora de Perú.
 ZONA_HORARIA = ZoneInfo("America/Lima")
@@ -26,6 +26,8 @@ EQUIPOS_NUEVOS_PATH = DATA_DIR / "equipos_nuevos.xlsx"
 # departamentos (ubicación). Con SharePoint se leerá de «Equipos.xlsx» en la carpeta Actas.
 CATALOGOS_DIR = BASE_DIR / "catalogos"
 CATALOGO_EQUIPOS_PATH = CATALOGOS_DIR / "equipos.xlsx"
+PROTOCOLOS_PATH = CATALOGOS_DIR / "mantenimientos_preventivos.xlsx"  # solo pruebas locales
+ANTECEDENTE_PREVENTIVO = "Mantenimiento Preventivo"
 
 # ---------- SharePoint (se activa con la sección [sharepoint] de los Secrets) ----------
 # Destino acordado. Las claves de acceso (tenant, client id, client secret) NO van aquí:
@@ -42,6 +44,8 @@ SHAREPOINT_EQUIPOS = "Equipos.xlsx"  # catálogo para el autocompletado
 # Equipos con una serie que no está en Equipos.xlsx, para revisarlos y pasarlos a mano.
 # Lo crea la app con el primer equipo nuevo.
 SHAREPOINT_EQUIPOS_NUEVOS = "Equipos_nuevos.xlsx"
+# Protocolos de mantenimiento preventivo: checklist de «Acciones realizadas».
+SHAREPOINT_PROTOCOLOS = "Mantenimientos Preventivos.xlsx"
 
 # ---------- Metadatos del formato físico ----------
 SISTEMA = "SISTEMA INTEGRADO DE GESTIÓN"

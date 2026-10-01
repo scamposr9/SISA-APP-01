@@ -87,6 +87,7 @@ class RepositorioSharePoint:
         carpeta_pdf: str = config.SHAREPOINT_CARPETA_PDF,
         equipos: str = config.SHAREPOINT_EQUIPOS,
         equipos_nuevos: str = config.SHAREPOINT_EQUIPOS_NUEVOS,
+        protocolos: str = config.SHAREPOINT_PROTOCOLOS,
         segundos_cache: float = 30,
     ):
         self.almacen = almacen
@@ -96,6 +97,7 @@ class RepositorioSharePoint:
         self.ruta_firmas = f"{self.carpeta}/{CARPETA_FIRMAS}"
         self.ruta_equipos = f"{self.carpeta}/{equipos}"
         self.ruta_equipos_nuevos = f"{self.carpeta}/{equipos_nuevos}"
+        self.ruta_protocolos = f"{self.carpeta}/{protocolos}"
         # La app vuelve a dibujarse con cada cambio en el formulario: se evita descargar
         # el Excel en cada una. Al guardar siempre se lee la versión más reciente.
         self._segundos_cache = segundos_cache
@@ -142,6 +144,10 @@ class RepositorioSharePoint:
     def leer_equipos(self) -> bytes | None:
         """Catálogo Equipos.xlsx para el autocompletado (None si aún no está en la carpeta)."""
         archivo = self.almacen.leer(self.ruta_equipos)
+        return archivo.datos if archivo else None
+
+    def leer_protocolos(self) -> bytes | None:
+        archivo = self.almacen.leer(self.ruta_protocolos)
         return archivo.datos if archivo else None
 
     def leer_equipos_nuevos(self) -> bytes | None:
@@ -250,6 +256,13 @@ class RepositorioSharePoint:
             "Equipos.xlsx encontrado (autocompletado desde SharePoint)."
             if self.almacen.enlace(self.ruta_equipos)
             else "Equipos.xlsx no está en la carpeta: el autocompletado de equipos queda vacío.",
+        ))
+        pasos.append((
+            bool(self.almacen.enlace(self.ruta_protocolos)),
+            f"{self.ruta_protocolos.rsplit('/', 1)[-1]} encontrado (checklist del mantenimiento preventivo)."
+            if self.almacen.enlace(self.ruta_protocolos)
+            else f"{self.ruta_protocolos.rsplit('/', 1)[-1]} no está en la carpeta: no habrá checklist "
+            "en el mantenimiento preventivo.",
         ))
         pasos.append((
             True,

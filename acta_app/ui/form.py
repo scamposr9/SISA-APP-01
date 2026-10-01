@@ -1,17 +1,21 @@
 """Formulario completo del acta FO-ING-02. Solo arma la interfaz y devuelve un `Acta`."""
 
+import hashlib
+
 import streamlit as st
 
 from acta_app import config
-from acta_app.catalogo import limpiar
-from acta_app.models import Acta, hoy
-from acta_app.ui.catalogo_ui import cargar_catalogo
+from acta_app.catalogo import clave, limpiar
+from acta_app.models import Acta, ActividadChecklist, hoy
+from acta_app.ui.catalogo_ui import cargar_catalogo, cargar_protocolos
 from acta_app.ui.components import (
     etiqueta,
     firma_o_camara,
     lista_dinamica,
+    poner_primer_punto,
     precargar_articulos,
     precargar_lista,
+    quitar_punto,
     seccion,
     tabla_articulos,
 )
@@ -76,6 +80,10 @@ def cargar_en_formulario(acta: Acta) -> None:
     ):
         precargar_lista(k(nombre), puntos)
     precargar_articulos(k("articulos"), acta.articulos)
+    # Checklist guardado: se conserva tal cual si no cambian marca ni modelo.
+    st.session_state[k("checklist_guardado")] = [c.texto for c in acta.checklist]
+    for actividad in acta.checklist:
+        st.session_state[_clave_actividad(actividad.texto)] = actividad.hecha
 
 
 def salir_de_correccion() -> None:
@@ -126,6 +134,63 @@ def _campo_catalogo(contenedor, texto: str, campo: str) -> str:
     return limpiar(valor)
 
 
+# ---------- Mantenimiento preventivo ----------
+def _al_cambiar_tipo() -> None:
+    """El preventivo siempre lleva «Mantenimiento Preventivo» en Antecedentes iniciales."""
+    if st.session_state.get(k("tipo_servicio")) == config.TIPO_SERVICIO_PREVENTIVO:
+        poner_primer_punto(k("antecedentes"), config.ANTECEDENTE_PREVENTIVO)
+    else:
+        quitar_punto(k("antecedentes"), config.ANTECEDENTE_PREVENTIVO)
+
+
+def _clave_actividad(texto: str) -> str:
+    return k("chk_" + hashlib.sha1(clave(texto).encode()).hexdigest()[:12])
+
+
+def _marcar_todas(actividades: list[str], valor: bool) -> None:
+    for texto in actividades:
+        st.session_state[_clave_actividad(texto)] = valor
+
+
+def _checklist_preventivo(acta: Acta, original: Acta | None) -> list[ActividadChecklist]:
+    """Checklist de «Parte mantenida» según la marca y el modelo del equipo."""
+    guardado = st.session_state.get(k("checklist_guardado")) or []
+    mismo_equipo = original is not None and (clave(original.marca), clave(original.modelo)) == (
+        clave(acta.marca), clave(acta.modelo)
+    )
+    protocolo = cargar_protocolos().buscar(acta.equipo, acta.marca, acta.modelo)
+    if guardado and mismo_equipo:
+        actividades, origen = guardado, "checklist del acta original"
+    elif protocolo:
+        actividades = protocolo.actividades
+        origen = " · ".join(v for v in (protocolo.equipo, protocolo.marca, protocolo.modelo) if v)
+    else:
+        if acta.modelo:
+            st.info(
+                f"No hay protocolo para {acta.marca or 'esta marca'} {acta.modelo} en "
+                f"«{config.SHAREPOINT_PROTOCOLOS}». Escribe las acciones realizadas abajo.",
+                icon="ℹ️",
+            )
+        else:
+            st.caption("Elige la marca y el modelo del equipo para cargar el checklist del mantenimiento.")
+        return []
+
+    st.markdown(f"**Checklist del mantenimiento preventivo** · {origen}")
+    c1, c2, _ = st.columns([1, 1, 2])
+    c1.button("Marcar todas", key=k("chk_todas"), on_click=_marcar_todas, args=(actividades, True))
+    c2.button("Desmarcar todas", key=k("chk_ninguna"), on_click=_marcar_todas, args=(actividades, False))
+    checklist = [
+        ActividadChecklist(texto, st.checkbox(texto, key=_clave_actividad(texto)))
+        for texto in actividades
+    ]
+    hechas = sum(a.hecha for a in checklist)
+    st.caption(
+        f"{hechas} de {len(checklist)} actividades realizadas. Las no marcadas saldrán en el PDF "
+        "con la casilla vacía."
+    )
+    return checklist
+
+
 def formulario_acta() -> Acta:
     """Dibuja el formulario. Si hay un acta cargada para corregir, el N.° no se puede
     cambiar y se pueden conservar sus firmas originales."""
@@ -166,6 +231,7 @@ def formulario_acta() -> Acta:
             index=None,
             horizontal=True,
             key=k("tipo_servicio"),
+            on_change=_al_cambiar_tipo,
             label_visibility="collapsed",
         )
 
@@ -174,6 +240,9 @@ def formulario_acta() -> Acta:
         acta.antecedentes = lista_dinamica(
             k("antecedentes"), "Ej: El cliente reportó ruido inusual en el equipo..."
         )
+        preventivo = acta.tipo_servicio == config.TIPO_SERVICIO_PREVENTIVO
+        if preventivo and config.ANTECEDENTE_PREVENTIVO not in acta.antecedentes:
+            acta.antecedentes.insert(0, config.ANTECEDENTE_PREVENTIVO)
 
     # ---------- Registro de horas ----------
     with seccion("horas", "Registro de horas", obligatorio=False):
@@ -195,6 +264,10 @@ def formulario_acta() -> Acta:
     with seccion(
         "acciones", "Acciones realizadas", nota="(detalla cada parte verificada, corregida o probada)"
     ):
+        if preventivo:
+            acta.checklist = _checklist_preventivo(acta, original)
+        if acta.checklist:
+            st.markdown("**Otras acciones** (opcional)")
         acta.acciones = lista_dinamica(k("acciones"), "Ej: Se revisó el sistema de refrigeración...")
 
     # ---------- Estado final ----------

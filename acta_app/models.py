@@ -24,6 +24,27 @@ class Articulo:
 
 
 @dataclass
+class ActividadChecklist:
+    """Actividad del protocolo de mantenimiento preventivo, marcada si se realizó."""
+
+    texto: str
+    hecha: bool = False
+
+    # En el Excel cada actividad va en una columna de «Acciones Realizadas» con este prefijo.
+    MARCA_HECHA, MARCA_PENDIENTE = "[X] ", "[ ] "
+
+    def como_texto(self) -> str:
+        return (self.MARCA_HECHA if self.hecha else self.MARCA_PENDIENTE) + self.texto
+
+    @classmethod
+    def desde_texto(cls, texto: str) -> ActividadChecklist | None:
+        for marca, hecha in ((cls.MARCA_HECHA, True), (cls.MARCA_PENDIENTE, False)):
+            if texto.startswith(marca):
+                return cls(texto[len(marca):].strip(), hecha)
+        return None
+
+
+@dataclass
 class Acta:
     numero: str = ""
     fecha: date | None = None
@@ -42,7 +63,9 @@ class Acta:
     hora_inicio_trabajo: time | None = None
     hora_fin_trabajo: time | None = None
 
-    acciones: list[str] = field(default_factory=list)
+    # Mantenimiento preventivo: actividades del protocolo del equipo (ver protocolos.py).
+    checklist: list[ActividadChecklist] = field(default_factory=list)
+    acciones: list[str] = field(default_factory=list)  # acciones escritas por el ingeniero
 
     estado_final: str | None = None
 
