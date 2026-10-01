@@ -178,8 +178,7 @@ def precargar_articulos(clave: str, articulos: list[Articulo]) -> None:
 
 
 def tabla_articulos(clave: str, repuestos: Repuestos) -> list[Articulo]:
-    """Una fila por artículo: Código (con sugerencias de Repuestos.xlsx; se busca por
-    código o por descripción), Descripción (se completa al elegir un código conocido) y
+    """Una fila por artículo: Código (con sugerencias de Repuestos.xlsx), Descripción (se completa al elegir un código conocido) y
     Cantidad. Acepta códigos que no estén en el catálogo."""
     ids_key, contador_key = f"{clave}_ids", f"{clave}_contador"
     if ids_key not in st.session_state:
@@ -221,9 +220,8 @@ def tabla_articulos(clave: str, repuestos: Repuestos) -> list[Articulo]:
             opciones,
             index=None,
             key=f"{clave}_cod_{item_id}",
-            placeholder="Escribe código o descripción…",
+            placeholder="Escribe el código…",
             accept_new_options=True,
-            format_func=repuestos.etiqueta,
             on_change=al_elegir_codigo,
             args=(item_id,),
             label_visibility="collapsed",

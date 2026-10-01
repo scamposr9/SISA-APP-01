@@ -45,11 +45,6 @@ class Repuestos:
     def descripcion(self, codigo: str) -> str | None:
         return self.descripciones.get(clave(codigo))
 
-    def etiqueta(self, codigo: str) -> str:
-        """Texto de la sugerencia: 'ABC-123 · Filtro de aire' (se busca por ambos)."""
-        descripcion = self.descripcion(codigo)
-        return f"{codigo} · {descripcion}" if descripcion else codigo
-
     @classmethod
     def desde_bytes(cls, datos: bytes) -> Repuestos:
         repuestos = cls()

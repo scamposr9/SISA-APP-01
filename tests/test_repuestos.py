@@ -29,7 +29,6 @@ def test_lee_las_dos_hojas_sin_repetir_codigos():
     assert repuestos.opciones() == ["12345", "BMB-7", "FLT-01"]
     assert repuestos.descripcion(" flt-01 ") == "Filtro de aire"
     assert repuestos.descripcion("BMB-7") == "Bomba peristáltica"
-    assert repuestos.etiqueta("12345") == "12345 · Lámpara halógena 12V"
     assert repuestos.descripcion("NO-EXISTE") is None
     assert repuestos.codigo("bmb-7 ") == "BMB-7" and repuestos.codigo("X-1") == "X-1"
     assert [(h.nombre, h.columna_codigo, h.columna_descripcion) for h in repuestos.hojas] == [
