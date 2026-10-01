@@ -25,6 +25,9 @@ def test_formato_en_bloques_ignora_serie_clientes_cronograma_y_obs():
         [2, "Revisión de escobillas", None, None, "X"],
         [None, None],
         ["OBS:", "Cliente solicita visita en marzo"],
+        [None, "1-"],
+        [None, "2-"],
+        [None, "Texto bajo OBS que no es una actividad"],
         ["EQUIPO: Analizador"],
         ["MARCA: Abbott", None, None, "MODELO: Architect c4000; C8000"],
         ["N°", "Parte mantenida", "Cronograma 2026"],
@@ -71,3 +74,13 @@ def test_modelo_unico_se_acepta_aunque_la_marca_no_coincida():
         ws.append(fila)
     protocolos = Protocolos.desde_bytes(_bytes(wb))
     assert protocolos.buscar("", "", "BC-5150").actividades == ["Limpieza"]
+
+
+def test_renglones_sin_texto_no_son_actividades():
+    wb = Workbook()
+    ws = wb.active
+    for fila in [["MARCA:", "Labtech"], ["MODELO:", "Auto Elisa PW"], ["Parte mantenida"],
+                 ["Limpieza exterior"], ["1-"], ["2."], ["-"], ["Limpieza interior"]]:
+        ws.append(fila)
+    protocolo = Protocolos.desde_bytes(_bytes(wb)).buscar("", "LABTECH", "AUTO ELISA PW")
+    assert protocolo.actividades == ["Limpieza exterior", "Limpieza interior"]

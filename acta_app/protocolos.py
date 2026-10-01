@@ -120,8 +120,10 @@ def _leer_hoja(nombre_hoja: str, filas: list[list[object]]) -> list[Protocolo]:
                     cols_tabla.setdefault(campo, i)
             continue
 
-        # Observaciones (OBS): a criterio del ingeniero, no se usan.
+        # Observaciones (OBS): a criterio del ingeniero. Se ignoran la fila y todo lo que
+        # sigue debajo (p. ej. renglones «1-», «2-» para escribir) hasta el próximo protocolo.
         if clave(no_vacias[0][1]).startswith("obs"):
+            col_parte = None
             continue
 
         # Etiquetas del encabezado del protocolo (EQUIPO / MARCA / MODELO).
@@ -153,6 +155,8 @@ def _leer_hoja(nombre_hoja: str, filas: list[list[object]]) -> list[Protocolo]:
                     setattr(actual, c, v)
         actividad = textos[col_parte] if col_parte < len(textos) else ""
         actividad = _NUMERACION.sub("", actividad).strip()
+        if not re.search(r"[^\W\d_]", actividad):
+            continue  # sin letras: «1-», «2.», «-», «X»… no es una actividad
         if actividad and not _es_columna_parte(actividad) and clave(actividad) not in (
             {clave(a) for a in actual.actividades}
         ):
