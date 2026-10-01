@@ -1,7 +1,8 @@
 """Nombres de los ingenieros que pueden firmar un acta (lista desplegable del representante).
 
 Se leen de la carpeta «Firmas Ingenieros/Nombres Ingenieria» en SharePoint:
-  * si contiene un Excel, de su columna «Nombre…» (o de la primera columna con texto);
+  * si contiene un Excel, de su columna «Nombre…», «Ingenieros…», etc. (o de la primera
+    columna con texto);
   * si no, de los nombres de sus subcarpetas (una por ingeniero).
 """
 
@@ -12,6 +13,10 @@ import io
 from openpyxl import load_workbook
 
 from acta_app.catalogo import clave, limpiar
+
+
+# Encabezados que indican la columna de nombres («Nombres y apellidos», «Ingenieros», …).
+_ENCABEZADOS = ("nombre", "ingeniero", "apellido", "personal", "colaborador", "responsable", "tecnico")
 
 
 def ordenar(nombres: list[str]) -> list[str]:
@@ -29,7 +34,7 @@ def nombres_desde_excel(datos: bytes) -> list[str]:
     wb.close()
     columna, inicio = None, 0
     for n, fila in enumerate(filas[:10]):
-        columna = next((i for i, c in enumerate(fila) if clave(limpiar(c)).startswith("nombre")), None)
+        columna = next((i for i, c in enumerate(fila) if clave(limpiar(c)).startswith(_ENCABEZADOS)), None)
         if columna is not None:
             inicio = n + 1
             break

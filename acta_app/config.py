@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 
 # Versión visible al pie de la app. Además se muestra el commit de GitHub desplegado
 # (ver version_desplegada), que cambia solo con cada actualización.
-APP_VERSION = "0.21.0"
+APP_VERSION = "0.21.1"
 
 # El servidor (p. ej. Streamlit Cloud) corre en UTC; fechas y horas se toman en hora de Perú.
 ZONA_HORARIA = ZoneInfo("America/Lima")
@@ -51,7 +51,8 @@ SHAREPOINT_PROTOCOLOS = "Mantenimientos Preventivos.xlsx"
 # Repuestos: autocompletado de «Artículos empleados» (código -> descripción).
 SHAREPOINT_REPUESTOS = "Repuestos.xlsx"
 # Lista de ingenieros (desplegable «Nombre del representante»), dentro de la carpeta de actas
-# o junto a ella. Puede tener un Excel con los nombres o una subcarpeta por ingeniero.
+# o junto a ella: el Excel «Nombres Ingenieria.xlsx» o una carpeta «Nombres Ingenieria» (con un
+# Excel o una subcarpeta por ingeniero).
 SHAREPOINT_NOMBRES_INGENIEROS = "Firmas Ingenieros/Nombres Ingenieria"
 
 # ---------- Metadatos del formato físico ----------

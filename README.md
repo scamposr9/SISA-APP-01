@@ -91,8 +91,8 @@ client_secret = "<VALOR del client secret (no su ID)>"
   hojas, columnas de código y descripción; filas repetidas se toman una vez) y al elegir un código conocido se completa su
   descripción. Se aceptan códigos que no estén en el catálogo.
 - **Nombre del representante:** desplegable con los ingenieros de
-  `Firmas Ingenieros/Nombres Ingenieria` (un Excel con una columna «Nombre…» o una subcarpeta
-  por ingeniero); al escribir se filtran los nombres.
+  `Firmas Ingenieros/Nombres Ingenieria.xlsx` (columna «Nombre…»; también sirve una carpeta
+  `Nombres Ingenieria` con un Excel o una subcarpeta por ingeniero); al escribir se filtran los nombres.
 - **Equipos nuevos:** si se guarda un acta cuya serie no está en `Equipos.xlsx`, el equipo se
   anota en `Equipos_nuevos.xlsx` (misma carpeta; se crea con el primero), con el N.° de acta y
   quién lo registró. El autocompletado ya lo sugiere; una persona revisa esa lista, copia las

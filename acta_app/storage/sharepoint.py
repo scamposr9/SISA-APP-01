@@ -172,6 +172,11 @@ class RepositorioSharePoint:
     def leer_nombres_ingenieros(self) -> tuple[list[str], str] | None:
         """(nombres, de dónde salieron) o None si no se encontró la carpeta."""
         for ruta in self.rutas_nombres_ingenieros:
+            # «Nombres Ingenieria.xlsx» suelto en «Firmas Ingenieros».
+            for extension in (".xlsx", ".xlsm"):
+                archivo = self.almacen.leer(ruta + extension)
+                if archivo:
+                    return ingenieros.nombres_desde_excel(archivo.datos), ruta + extension
             contenido = self.almacen.listar(ruta)
             if contenido is None:
                 continue
@@ -314,9 +319,10 @@ class RepositorioSharePoint:
                 bool(encontrados and encontrados[0]),
                 f"Ingenieros: {len(encontrados[0])} nombre(s) en {encontrados[1]}."
                 if encontrados
-                else f"No se encontró «{self.rutas_nombres_ingenieros[0].rsplit('/', 2)[-2]}/"
-                f"{self.rutas_nombres_ingenieros[0].rsplit('/', 1)[-1]}»: el nombre del "
-                "representante se escribe a mano.",
+                else "No se encontró la lista de ingenieros (se buscó «Nombres Ingenieria.xlsx» o la "
+                "carpeta «Nombres Ingenieria» en: " + " y ".join(
+                    f"«{r.rsplit('/', 1)[0]}»" for r in self.rutas_nombres_ingenieros
+                ) + "). El nombre del representante se escribe a mano.",
             ))
         pasos.append((
             True,

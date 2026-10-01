@@ -320,3 +320,18 @@ def test_nombres_de_ingenieros_desde_subcarpetas_junto_a_actas(repo, sp):
 
 def test_sin_lista_de_ingenieros(repo):
     assert repo.leer_nombres_ingenieros() is None
+
+
+def test_nombres_de_ingenieros_desde_el_excel_suelto_en_firmas_ingenieros(repo, sp):
+    from openpyxl import Workbook
+
+    wb = Workbook()
+    for fila in [["NOMBRES"], ["Sebastián Campos"], ["Ana Ruiz"]]:
+        wb.active.append(fila)
+    salida = io.BytesIO()
+    wb.save(salida)
+    sp.escribir(f"{CARPETA}/Firmas Ingenieros/Nombres Ingenieria.xlsx", salida.getvalue())
+
+    nombres, origen = repo.leer_nombres_ingenieros()
+    assert nombres == ["Ana Ruiz", "Sebastián Campos"]
+    assert origen == f"{CARPETA}/Firmas Ingenieros/Nombres Ingenieria.xlsx"
