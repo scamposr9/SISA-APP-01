@@ -267,7 +267,7 @@ def formulario_acta() -> Acta:
         if preventivo:
             acta.checklist = _checklist_preventivo(acta, original)
         if acta.checklist:
-            st.markdown("**Otras acciones** (opcional)")
+            st.markdown("**Acciones adicionales** (opcional)")
         acta.acciones = lista_dinamica(k("acciones"), "Ej: Se revisó el sistema de refrigeración...")
 
     # ---------- Estado final ----------

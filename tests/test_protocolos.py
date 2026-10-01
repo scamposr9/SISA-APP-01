@@ -84,3 +84,27 @@ def test_renglones_sin_texto_no_son_actividades():
         ws.append(fila)
     protocolo = Protocolos.desde_bytes(_bytes(wb)).buscar("", "LABTECH", "AUTO ELISA PW")
     assert protocolo.actividades == ["Limpieza exterior", "Limpieza interior"]
+
+
+def test_mismo_equipo_marca_y_modelo_se_unen_sin_repetir_actividades():
+    wb = Workbook()
+    ws = wb.active
+    for fila in [
+        ["EQUIPO:", "Lavador de microplacas"], ["MARCA:", "Labtech"], ["MODELO:", "Auto Elisa PW"],
+        ["Parte mantenida"], ["Limpieza exterior"], ["Revisión de bomba"],
+        ["OBS:"], ["1-"],
+        ["EQUIPO:", "Lavador de microplacas"], ["MARCA:", "LABTECH"], ["MODELO:", "auto elisa pw"],
+        ["Parte mantenida"], ["Limpieza exterior"], ["Limpieza de peines de lavado"],
+        ["EQUIPO:", "Lector de microplacas"], ["MARCA:", "Labtech"], ["MODELO:", "Auto Elisa PW"],
+        ["Parte mantenida"], ["Calibración de filtros"],
+    ]:
+        ws.append(fila)
+
+    protocolos = Protocolos.desde_bytes(_bytes(wb))
+
+    lavador = protocolos.buscar("Lavador de microplacas", "Labtech", "Auto Elisa PW")
+    assert lavador.actividades == ["Limpieza exterior", "Revisión de bomba", "Limpieza de peines de lavado"]
+    # Otro equipo con la misma marca y modelo no se mezcla.
+    assert protocolos.buscar("Lector de microplacas", "Labtech", "Auto Elisa PW").actividades == [
+        "Calibración de filtros",
+    ]

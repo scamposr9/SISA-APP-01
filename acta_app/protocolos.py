@@ -129,8 +129,8 @@ def _leer_hoja(nombre_hoja: str, filas: list[list[object]]) -> list[Protocolo]:
         # Etiquetas del encabezado del protocolo (EQUIPO / MARCA / MODELO).
         etiquetas_en_fila = False
         for posicion, (i, t) in enumerate(no_vacias):
-            if col_parte is not None and i == col_parte:
-                continue
+            if col_parte is not None and i == col_parte and ":" not in t:
+                continue  # en la columna de actividades solo cuentan «EQUIPO: …», con dos puntos
             etiqueta = _etiqueta(t)
             if etiqueta is None or (cols_tabla and i in cols_tabla.values()):
                 continue
