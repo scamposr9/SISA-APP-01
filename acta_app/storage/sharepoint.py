@@ -24,7 +24,7 @@ from urllib.parse import quote, unquote, urlparse
 import pandas as pd
 from openpyxl import load_workbook
 
-from acta_app import config, equipos_nuevos
+from acta_app import config, equipos_nuevos, ingenieros
 from acta_app.models import Acta, ahora
 from acta_app.storage.base import (
     ActaDuplicadaError,
@@ -77,6 +77,10 @@ class AlmacenArchivos(Protocol):
         """Enlace para abrir un archivo o carpeta en el navegador (None si no existe)."""
         ...
 
+    def listar(self, ruta: str) -> list[tuple[str, bool]] | None:
+        """(nombre, es_carpeta) de lo que hay dentro de una carpeta; None si no existe."""
+        ...
+
 
 # ---------- Repositorio ----------
 class RepositorioSharePoint:
@@ -90,6 +94,7 @@ class RepositorioSharePoint:
         equipos_nuevos: str = config.SHAREPOINT_EQUIPOS_NUEVOS,
         protocolos: str = config.SHAREPOINT_PROTOCOLOS,
         repuestos: str = config.SHAREPOINT_REPUESTOS,
+        nombres_ingenieros: str = config.SHAREPOINT_NOMBRES_INGENIEROS,
         segundos_cache: float = 30,
     ):
         self.almacen = almacen
@@ -102,6 +107,12 @@ class RepositorioSharePoint:
         self.ruta_equipos_nuevos = f"{self.carpeta}/{equipos_nuevos}"
         self.ruta_protocolos = f"{self.carpeta}/{protocolos}"
         self.ruta_repuestos = f"{self.carpeta}/{repuestos}"
+        # Se busca dentro de la carpeta de actas y, si no, junto a ella.
+        padre = self.carpeta.rsplit("/", 1)[0] if "/" in self.carpeta else ""
+        self.rutas_nombres_ingenieros = [
+            f"{self.carpeta}/{nombres_ingenieros.strip('/')}",
+            f"{padre}/{nombres_ingenieros.strip('/')}".strip("/"),
+        ]
         # La app vuelve a dibujarse con cada cambio en el formulario: se evita descargar
         # el Excel en cada una. Al guardar siempre se lee la versión más reciente.
         self._segundos_cache = segundos_cache
@@ -157,6 +168,21 @@ class RepositorioSharePoint:
     def leer_repuestos(self) -> bytes | None:
         archivo = self.almacen.leer(self.ruta_repuestos)
         return archivo.datos if archivo else None
+
+    def leer_nombres_ingenieros(self) -> tuple[list[str], str] | None:
+        """(nombres, de dónde salieron) o None si no se encontró la carpeta."""
+        for ruta in self.rutas_nombres_ingenieros:
+            contenido = self.almacen.listar(ruta)
+            if contenido is None:
+                continue
+            excel = next((n for n, carpeta in contenido if not carpeta
+                          and n.lower().endswith((".xlsx", ".xlsm")) and not n.startswith("~$")), None)
+            if excel:
+                archivo = self.almacen.leer(f"{ruta}/{excel}")
+                if archivo:
+                    return ingenieros.nombres_desde_excel(archivo.datos), f"{ruta}/{excel}"
+            return ingenieros.ordenar([n for n, carpeta in contenido if carpeta]), f"subcarpetas de {ruta}"
+        return None
 
     def leer_equipos_nuevos(self) -> bytes | None:
         archivo = self.almacen.leer(self.ruta_equipos_nuevos)
@@ -278,6 +304,20 @@ class RepositorioSharePoint:
             if self.almacen.enlace(self.ruta_repuestos)
             else "Repuestos.xlsx no está en la carpeta: los artículos se escriben a mano.",
         ))
+        try:
+            encontrados = self.leer_nombres_ingenieros()
+        except AlmacenamientoError as exc:
+            encontrados = None
+            pasos.append((False, f"No se pudo leer la lista de ingenieros: {exc}"))
+        else:
+            pasos.append((
+                bool(encontrados and encontrados[0]),
+                f"Ingenieros: {len(encontrados[0])} nombre(s) en {encontrados[1]}."
+                if encontrados
+                else f"No se encontró «{self.rutas_nombres_ingenieros[0].rsplit('/', 2)[-2]}/"
+                f"{self.rutas_nombres_ingenieros[0].rsplit('/', 1)[-1]}»: el nombre del "
+                "representante se escribe a mano.",
+            ))
         pasos.append((
             True,
             "Equipos_nuevos.xlsx encontrado (equipos por revisar)."
@@ -431,6 +471,17 @@ class AlmacenGraph:
         item = self._item(ruta)
         if item is not None:
             self._pedir("DELETE", f"{self._raiz()}/items/{item['id']}")
+
+    def listar(self, ruta: str) -> list[tuple[str, bool]] | None:
+        if self._item(ruta) is None:
+            return None
+        url = f"{self._raiz()}/root:/{_ruta_url(ruta)}:/children?$select=name,folder&$top=999"
+        contenido: list[tuple[str, bool]] = []
+        while url:
+            pagina = self._pedir("GET", url).json()
+            contenido += [(i.get("name", ""), "folder" in i) for i in pagina.get("value", [])]
+            url = pagina.get("@odata.nextLink")
+        return contenido
 
     def enlace(self, ruta: str) -> str | None:
         item = self._item(ruta)

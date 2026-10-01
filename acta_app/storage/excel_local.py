@@ -12,7 +12,7 @@ from pathlib import Path
 import pandas as pd
 from openpyxl import Workbook, load_workbook
 
-from acta_app import config, equipos_nuevos
+from acta_app import config, equipos_nuevos, ingenieros
 from acta_app.models import Acta, ahora
 from acta_app.storage.base import (
     ActaDuplicadaError,
@@ -111,6 +111,10 @@ class RepositorioExcelLocal:
     def leer_repuestos(self) -> bytes | None:
         ruta = config.REPUESTOS_PATH  # solo para pruebas en una computadora (no va a GitHub)
         return ruta.read_bytes() if ruta.exists() else None
+
+    def leer_nombres_ingenieros(self) -> tuple[list[str], str] | None:
+        ruta = config.INGENIEROS_PATH  # solo para pruebas en una computadora (no va a GitHub)
+        return (ingenieros.nombres_desde_excel(ruta.read_bytes()), str(ruta)) if ruta.exists() else None
 
     def leer_equipos_nuevos(self) -> bytes | None:
         return self.ruta_equipos_nuevos.read_bytes() if self.ruta_equipos_nuevos.exists() else None

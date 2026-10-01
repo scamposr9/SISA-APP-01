@@ -52,6 +52,17 @@ class SharePointFalso:
     def eliminar(self, ruta):
         self.archivos.pop(ruta, None)
 
+    def listar(self, ruta):
+        hijos = {}
+        for r in [*self.archivos, *self.carpetas]:
+            if r.startswith(ruta + "/"):
+                nombre = r[len(ruta) + 1:].split("/")[0]
+                hijos[nombre] = hijos.get(nombre) or f"{ruta}/{nombre}" in self.carpetas or (
+                    "/" in r[len(ruta) + 1:])
+        if not hijos and ruta not in self.carpetas:
+            return None
+        return sorted(hijos.items())
+
     def enlace(self, ruta):
         existe = ruta in self.archivos or ruta in self.carpetas or any(
             r.startswith(ruta + "/") for r in self.archivos
@@ -280,3 +291,32 @@ def test_firmas_de_la_carpeta_firmas_pasan_a_firmas_actas(repo, sp, acta_complet
     assert repo.obtener("2026-00051").firma_cliente_png == datos
     assert f"{CARPETA}/Firmas Actas/2026-00051/cliente.png" in sp.archivos
     assert f"{CARPETA}/Firmas/2026-00051/cliente.png" not in sp.archivos
+
+
+def test_nombres_de_ingenieros_desde_un_excel(repo, sp):
+    from openpyxl import Workbook
+
+    wb = Workbook()
+    for fila in [["N°", "Nombres y apellidos"], [1, "Ana Ruiz"], [2, "  luis  pérez "], [3, "Ana Ruiz"]]:
+        wb.active.append(fila)
+    salida = io.BytesIO()
+    wb.save(salida)
+    sp.escribir(f"{CARPETA}/Firmas Ingenieros/Nombres Ingenieria/Ingenieros.xlsx", salida.getvalue())
+
+    nombres, origen = repo.leer_nombres_ingenieros()
+    assert nombres == ["Ana Ruiz", "luis pérez"]
+    assert origen.endswith("Nombres Ingenieria/Ingenieros.xlsx")
+
+
+def test_nombres_de_ingenieros_desde_subcarpetas_junto_a_actas(repo, sp):
+    base = "16. Analisis de Datos/Firmas Ingenieros/Nombres Ingenieria"
+    sp.carpetas |= {base, f"{base}/Carlos Díaz", f"{base}/Ana Ruiz"}
+    sp.escribir(f"{base}/Ana Ruiz/firma.png", b"png")
+
+    nombres, origen = repo.leer_nombres_ingenieros()
+    assert nombres == ["Ana Ruiz", "Carlos Díaz"]
+    assert origen == f"subcarpetas de {base}"
+
+
+def test_sin_lista_de_ingenieros(repo):
+    assert repo.leer_nombres_ingenieros() is None

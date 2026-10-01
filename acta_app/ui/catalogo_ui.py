@@ -83,7 +83,22 @@ def cargar_repuestos() -> Repuestos:
         return Repuestos()
 
 
+@st.cache_data(show_spinner=False, ttl=300)
+def _cargar_ingenieros() -> list[str]:
+    encontrados = obtener_repositorio().leer_nombres_ingenieros()
+    return encontrados[0] if encontrados else []
+
+
+def cargar_ingenieros() -> list[str]:
+    """Nombres para el desplegable del representante (vacío: se escribe a mano)."""
+    try:
+        return _cargar_ingenieros()
+    except Exception:  # sin conexión: el nombre se escribe a mano
+        return []
+
+
 def refrescar_catalogo() -> None:
+    _cargar_ingenieros.clear()
     _cargar_repuestos.clear()
     _cargar_protocolos.clear()
     _cargar_sharepoint.clear()

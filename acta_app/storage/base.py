@@ -74,6 +74,11 @@ class RepositorioActas(Protocol):
         """Repuestos.xlsx (código y descripción de los artículos), si existe."""
         ...
 
+    def leer_nombres_ingenieros(self) -> tuple[list[str], str] | None:
+        """Nombres de los ingenieros para el desplegable del representante y de dónde se
+        leyeron; None si no hay lista."""
+        ...
+
     def leer_equipos_nuevos(self) -> bytes | None:
         """Equipos_nuevos.xlsx (equipos fuera del catálogo, por revisar), si existe."""
         ...

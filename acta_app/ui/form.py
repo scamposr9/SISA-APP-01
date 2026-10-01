@@ -7,7 +7,7 @@ import streamlit as st
 from acta_app import config
 from acta_app.catalogo import clave, limpiar
 from acta_app.models import Acta, ActividadChecklist, duracion, hoy, redondear_a_5_minutos
-from acta_app.ui.catalogo_ui import cargar_catalogo, cargar_protocolos, cargar_repuestos
+from acta_app.ui.catalogo_ui import cargar_catalogo, cargar_ingenieros, cargar_protocolos, cargar_repuestos
 from acta_app.ui.components import (
     etiqueta,
     firma_o_camara,
@@ -66,7 +66,7 @@ def cargar_en_formulario(acta: Acta) -> None:
         "tipo_servicio": acta.tipo_servicio if acta.tipo_servicio in config.TIPOS_SERVICIO else None,
         "estado_final": acta.estado_final,
         "nombre_cliente": acta.nombre_cliente,
-        "nombre_representante": acta.nombre_representante,
+        "nombre_representante": acta.nombre_representante or (None if cargar_ingenieros() else ""),
     }
     for nombre, valor in valores.items():
         st.session_state[k(nombre)] = valor
@@ -313,11 +313,27 @@ def formulario_acta() -> Acta:
                 acta.firma_representante_png = _firma_original(original.firma_representante_png, config.EMPRESA)
             else:
                 acta.firma_representante_png = firma_o_camara(k("firma_representante"), config.EMPRESA)
-            acta.nombre_representante = st.text_input(
-                etiqueta("Nombre del representante"), key=k("nombre_representante")
-            ).strip()
+            acta.nombre_representante = _nombre_representante()
 
     return acta
+
+
+def _nombre_representante() -> str:
+    """Desplegable con los ingenieros de «Firmas Ingenieros/Nombres Ingenieria» (al escribir
+    se filtran los nombres). Sin esa lista, se escribe a mano."""
+    nombres = cargar_ingenieros()
+    if not nombres:
+        return st.text_input(etiqueta("Nombre del representante"), key=k("nombre_representante")).strip()
+    actual = st.session_state.get(k("nombre_representante"))
+    if actual and actual not in nombres:  # acta anterior con un nombre que ya no está en la lista
+        nombres = [actual, *nombres]
+    return st.selectbox(
+        etiqueta("Nombre del representante"),
+        nombres,
+        index=None,
+        key=k("nombre_representante"),
+        placeholder="Escribe para buscar tu nombre…",
+    ) or ""
 
 
 def _firma_original(png: bytes | None, rotulo: str) -> bytes | None:
