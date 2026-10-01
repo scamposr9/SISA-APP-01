@@ -32,12 +32,27 @@ class ActividadChecklist:
 
     # En el Excel cada actividad va en una columna de «Acciones Realizadas» con este prefijo.
     MARCA_HECHA, MARCA_PENDIENTE = "[X] ", "[ ] "
+    # Con checklist, las acciones escritas por el ingeniero van como «[X] … (Extra)».
+    SUFIJO_EXTRA = " (Extra)"
+
+    @classmethod
+    def texto_extra(cls, accion: str) -> str:
+        return f"{cls.MARCA_HECHA}{accion}{cls.SUFIJO_EXTRA}"
+
+    @classmethod
+    def accion_de_texto_extra(cls, texto: str) -> str | None:
+        """'[X] Limpieza del suelo (Extra)' -> 'Limpieza del suelo'; None si no es extra."""
+        if texto.startswith(cls.MARCA_HECHA) and texto.endswith(cls.SUFIJO_EXTRA):
+            return texto[len(cls.MARCA_HECHA):-len(cls.SUFIJO_EXTRA)].strip()
+        return None
 
     def como_texto(self) -> str:
         return (self.MARCA_HECHA if self.hecha else self.MARCA_PENDIENTE) + self.texto
 
     @classmethod
     def desde_texto(cls, texto: str) -> ActividadChecklist | None:
+        if cls.accion_de_texto_extra(texto) is not None:
+            return None  # acción adicional del ingeniero, no del protocolo
         for marca, hecha in ((cls.MARCA_HECHA, True), (cls.MARCA_PENDIENTE, False)):
             if texto.startswith(marca):
                 return cls(texto[len(marca):].strip(), hecha)
@@ -93,6 +108,16 @@ class Acta:
         if self.tipo_servicio == TIPO_SERVICIO_OTRO and self.tipo_servicio_otro:
             return f"{TIPO_SERVICIO_OTRO}: {self.tipo_servicio_otro}"  # actas anteriores
         return self.tipo_servicio or ""
+
+    @property
+    def acciones_como_texto(self) -> list[str]:
+        """Acciones para el Excel y el PDF: el checklist («[X] …» / «[ ] …») y, si lo hay,
+        las acciones adicionales como «[X] … (Extra)»; si no, las acciones tal cual."""
+        if not self.checklist:
+            return list(self.acciones)
+        return [c.como_texto() for c in self.checklist] + [
+            ActividadChecklist.texto_extra(a) for a in self.acciones
+        ]
 
     @property
     def articulos_usados(self) -> list[Articulo]:

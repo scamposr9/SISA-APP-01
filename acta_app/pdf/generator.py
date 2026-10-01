@@ -16,7 +16,7 @@ from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.pdfgen import canvas
 
 from acta_app import config
-from acta_app.models import Acta, formatear_fecha, formatear_hora
+from acta_app.models import Acta, ActividadChecklist, formatear_fecha, formatear_hora
 
 # ---------- Medidas y colores (idénticos al prototipo) ----------
 PAGE_W, PAGE_H = 210, 297
@@ -302,7 +302,8 @@ def _lista(lz: _Lienzo, titulo: str, puntos: list[str]) -> None:
 
 def _acciones(lz: _Lienzo, acta: Acta) -> None:
     """Acciones realizadas: primero el checklist del mantenimiento preventivo (casilla con X
-    si se realizó, vacía si no) y luego las acciones escritas a mano, numeradas."""
+    si se realizó, vacía si no) y luego las acciones adicionales, marcadas y con «(Extra)».
+    Sin checklist, las acciones van numeradas como siempre."""
     if not acta.checklist:
         _lista(lz, "Acciones realizadas", acta.acciones)
         return
@@ -311,12 +312,13 @@ def _acciones(lz: _Lienzo, acta: Acta) -> None:
     lz.texto(MARGIN_X, lz.y, "Acciones realizadas")
     lz.y += 5.5
     sangria = 6
-    for actividad in acta.checklist:
+    extras = [(a + ActividadChecklist.SUFIJO_EXTRA, True) for a in acta.acciones]
+    for texto, hecha in [(c.texto, c.hecha) for c in acta.checklist] + extras:
         lz.fuente(REGULAR, 9, INK)
-        lineas = lz.partir(actividad.texto, CONTENT_W - sangria)
+        lineas = lz.partir(texto, CONTENT_W - sangria)
         if lz.y + 6 > LIMITE_INFERIOR:
             lz.nueva_pagina()
-        _casilla(lz, MARGIN_X, lz.y, marcada=actividad.hecha)
+        _casilla(lz, MARGIN_X, lz.y, marcada=hecha)
         for linea in lineas:
             if lz.y + 6 > LIMITE_INFERIOR:
                 lz.nueva_pagina()
@@ -324,16 +326,6 @@ def _acciones(lz: _Lienzo, acta: Acta) -> None:
             lz.texto(MARGIN_X + sangria, lz.y, linea)
             lz.y += 5
         lz.y += 0.8
-    if acta.acciones:
-        lz.y += 1
-        lz.fuente(REGULAR, 9, INK)
-        for i, accion in enumerate(acta.acciones, start=1):
-            for linea in lz.partir(f"{i}. {accion}", CONTENT_W):
-                if lz.y + 6 > LIMITE_INFERIOR:
-                    lz.nueva_pagina()
-                    lz.fuente(REGULAR, 9, INK)
-                lz.texto(MARGIN_X, lz.y, linea)
-                lz.y += 5
     lz.y += 3
 
 

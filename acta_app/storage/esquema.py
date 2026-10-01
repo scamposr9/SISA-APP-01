@@ -89,9 +89,8 @@ ESQUEMA: list[Campo | Grupo] = [
     Grupo("Antecedentes Iniciales", "Antecedente", _textos(lambda a: a.antecedentes)),
     Campo("Hora Inicio Trabajo", lambda a: a.hora_inicio_trabajo, FORMATO_HORA, ancho=12),
     Campo("Hora Fin Trabajo", lambda a: a.hora_fin_trabajo, FORMATO_HORA, ancho=12),
-    # Primero las actividades del checklist («[X] …» / «[ ] …») y luego las escritas a mano.
-    Grupo("Acciones Realizadas", "Acción",
-          _textos(lambda a: [c.como_texto() for c in a.checklist] + a.acciones)),
+    # Checklist («[X] …» / «[ ] …») y luego las acciones adicionales («[X] … (Extra)»).
+    Grupo("Acciones Realizadas", "Acción", _textos(lambda a: a.acciones_como_texto)),
     Campo("Estado Final del Servicio", lambda a: a.estado_final or "", ancho=18),
     Grupo(
         "Artículos Empleados",
@@ -183,7 +182,10 @@ def acta_desde_registro(registro: Registro) -> Acta:
         hora_inicio_trabajo=_a_hora(v.get("Hora Inicio Trabajo")),
         hora_fin_trabajo=_a_hora(v.get("Hora Fin Trabajo")),
         checklist=[c for c in map(ActividadChecklist.desde_texto, lista("Acciones Realizadas")) if c],
-        acciones=[t for t in lista("Acciones Realizadas") if ActividadChecklist.desde_texto(t) is None],
+        acciones=[
+            ActividadChecklist.accion_de_texto_extra(t) or t
+            for t in lista("Acciones Realizadas") if ActividadChecklist.desde_texto(t) is None
+        ],
         estado_final=texto("Estado Final del Servicio") or None,
         articulos=[
             Articulo(

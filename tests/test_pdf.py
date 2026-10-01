@@ -119,4 +119,9 @@ def test_checklist_en_acciones_realizadas(acta_completa):
                                ActividadChecklist("Revisión de escobillas", False)]
     texto = _texto(generar_pdf(acta_completa))
     assert "Limpieza general del equipo" in texto and "Revisión de escobillas" in texto
-    assert "1. Se revisó la bomba" in texto  # las acciones escritas siguen, numeradas
+    assert "Se revisó la bomba (Extra)" in texto and "1. Se revisó la bomba" not in texto
+
+
+def test_sin_checklist_las_acciones_siguen_numeradas(acta_completa):
+    texto = _texto(generar_pdf(acta_completa))
+    assert "1. Se revisó la bomba" in texto and "(Extra)" not in texto

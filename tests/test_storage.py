@@ -278,7 +278,7 @@ def test_checklist_se_guarda_con_su_estado_y_se_recupera(repo, acta_completa):
     repo.guardar(acta_completa, b"pdf", "1.pdf")
     fila = _fila(_hoja(repo), 1)
     assert (fila["Acción 1"], fila["Acción 2"], fila["Acción 3"]) == (
-        "[X] Limpieza general", "[ ] Cambio de filtro", "Se revisó la bomba",
+        "[X] Limpieza general", "[ ] Cambio de filtro", "[X] Se revisó la bomba (Extra)",
     )
     acta = repo.obtener(acta_completa.numero)
     assert acta.checklist == acta_completa.checklist
