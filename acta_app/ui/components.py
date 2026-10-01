@@ -7,13 +7,13 @@ import io
 from contextlib import contextmanager
 from datetime import time
 
-import pandas as pd
 from PIL import Image, ImageEnhance, ImageOps
 import streamlit as st
 from streamlit_drawable_canvas import st_canvas
 
 from acta_app import config
 from acta_app.models import Articulo, hoy
+from acta_app.repuestos import Repuestos
 
 REQ = '<span class="req-star">*</span>'
 
@@ -162,64 +162,95 @@ def lista_dinamica(clave: str, placeholder: str) -> list[str]:
     return [v.strip() for v in valores if v and v.strip()]
 
 
-# ---------- Tabla de artículos empleados ----------
+# ---------- Artículos empleados ----------
 COL_CODIGO, COL_DESCRIPCION, COL_CANTIDAD = "Código", "Descripción", "Cantidad"
 
 
-def _tabla_inicial(articulos: list[Articulo]) -> pd.DataFrame:
-    """Artículos dados + filas vacías hasta completar las del formato físico."""
-    vacias = max(config.FILAS_ARTICULOS_INICIALES - len(articulos), 0)
-    filas = [(a.codigo, a.descripcion, a.cantidad) for a in articulos] + [("", "", None)] * vacias
-    return pd.DataFrame(
-        {
-            COL_CODIGO: pd.Series([f[0] for f in filas], dtype="string"),
-            COL_DESCRIPCION: pd.Series([f[1] for f in filas], dtype="string"),
-            COL_CANTIDAD: pd.Series([f[2] for f in filas], dtype="Int64"),
-        }
-    )
-
-
 def precargar_articulos(clave: str, articulos: list[Articulo]) -> None:
-    st.session_state[f"{clave}_df_inicial"] = _tabla_inicial(articulos)
+    """Deja las filas de artículos con estos valores (para corregir un acta)."""
+    articulos = articulos or [Articulo()]
+    st.session_state[f"{clave}_ids"] = list(range(len(articulos)))
+    st.session_state[f"{clave}_contador"] = len(articulos)
+    for i, articulo in enumerate(articulos):
+        st.session_state[f"{clave}_cod_{i}"] = articulo.codigo or None
+        st.session_state[f"{clave}_des_{i}"] = articulo.descripcion
+        st.session_state[f"{clave}_can_{i}"] = articulo.cantidad
 
 
-def tabla_articulos(clave: str) -> list[Articulo]:
-    """Tabla editable con filas agregables; 'Cantidad' solo acepta enteros."""
-    inicial_key = f"{clave}_df_inicial"
-    if inicial_key not in st.session_state:
-        st.session_state[inicial_key] = _tabla_inicial([])
+def tabla_articulos(clave: str, repuestos: Repuestos) -> list[Articulo]:
+    """Una fila por artículo: Código (con sugerencias de Repuestos.xlsx; se busca por
+    código o por descripción), Descripción (se completa al elegir un código conocido) y
+    Cantidad. Acepta códigos que no estén en el catálogo."""
+    ids_key, contador_key = f"{clave}_ids", f"{clave}_contador"
+    if ids_key not in st.session_state:
+        st.session_state[ids_key] = [0]
+        st.session_state[contador_key] = 1
 
-    df = st.data_editor(
-        st.session_state[inicial_key],
-        key=f"{clave}_editor",
-        num_rows="dynamic",
-        hide_index=True,
-        width="stretch",
-        column_config={
-            COL_CODIGO: st.column_config.TextColumn(COL_CODIGO, width="small"),
-            COL_DESCRIPCION: st.column_config.TextColumn(COL_DESCRIPCION, width="large"),
-            COL_CANTIDAD: st.column_config.NumberColumn(
-                COL_CANTIDAD, min_value=1, step=1, format="%d", width="small"
-            ),
-        },
-    )
-    st.caption("Usa la última fila (＋) para agregar ítems. Selecciona una fila y pulsa 🗑 para quitarla.")
+    def agregar() -> None:
+        st.session_state[ids_key].append(st.session_state[contador_key])
+        st.session_state[contador_key] += 1
 
+    def quitar(item_id: int) -> None:
+        st.session_state[ids_key].remove(item_id)
+        for campo in ("cod", "des", "can"):
+            st.session_state.pop(f"{clave}_{campo}_{item_id}", None)
+        if not st.session_state[ids_key]:
+            agregar()
+
+    def al_elegir_codigo(item_id: int) -> None:
+        """Código del catálogo (elegido o escrito igual, sin importar mayúsculas):
+        completa la descripción y deja el código como está en Repuestos.xlsx."""
+        escrito = st.session_state.get(f"{clave}_cod_{item_id}") or ""
+        descripcion = repuestos.descripcion(escrito)
+        if descripcion:
+            st.session_state[f"{clave}_cod_{item_id}"] = repuestos.codigo(escrito)
+            st.session_state[f"{clave}_des_{item_id}"] = descripcion
+
+    anchos = [2.6, 4, 1.3, 0.5]
+    for col, titulo in zip(st.columns(anchos), (COL_CODIGO, COL_DESCRIPCION, COL_CANTIDAD, "")):
+        col.markdown(f'<div class="art-head">{titulo}</div>', unsafe_allow_html=True)
+
+    codigos = repuestos.opciones()
     articulos = []
-    for _, fila in df.iterrows():
-        cantidad = fila[COL_CANTIDAD]
-        articulos.append(
-            Articulo(
-                codigo=_texto(fila[COL_CODIGO]),
-                descripcion=_texto(fila[COL_DESCRIPCION]),
-                cantidad=None if pd.isna(cantidad) else int(cantidad),
-            )
+    for item_id in st.session_state[ids_key]:
+        c_cod, c_des, c_can, c_quitar = st.columns(anchos, vertical_alignment="center")
+        actual = st.session_state.get(f"{clave}_cod_{item_id}")
+        opciones = codigos if not actual or repuestos.descripcion(actual) else [actual, *codigos]
+        codigo = c_cod.selectbox(
+            COL_CODIGO,
+            opciones,
+            index=None,
+            key=f"{clave}_cod_{item_id}",
+            placeholder="Escribe código o descripción…",
+            accept_new_options=True,
+            format_func=repuestos.etiqueta,
+            on_change=al_elegir_codigo,
+            args=(item_id,),
+            label_visibility="collapsed",
         )
+        descripcion = c_des.text_input(
+            COL_DESCRIPCION, key=f"{clave}_des_{item_id}", label_visibility="collapsed"
+        )
+        cantidad = c_can.number_input(
+            COL_CANTIDAD, min_value=1, step=1, value=None, key=f"{clave}_can_{item_id}",
+            placeholder="Cant.", label_visibility="collapsed",
+        )
+        c_quitar.button(
+            "×", key=f"quitar_{clave}_{item_id}", help="Quitar artículo", on_click=quitar, args=(item_id,)
+        )
+        articulos.append(Articulo(
+            codigo=_texto(codigo), descripcion=_texto(descripcion),
+            cantidad=None if cantidad is None else int(cantidad),
+        ))
+
+    st.button("+ Agregar artículo", key=f"agregar_{clave}", on_click=agregar)
+    if not codigos:
+        st.caption("Sin catálogo de repuestos: escribe el código y la descripción a mano.")
     return articulos
 
 
 def _texto(valor) -> str:
-    return "" if valor is None or pd.isna(valor) else str(valor).strip()
+    return "" if valor is None else " ".join(str(valor).split())
 
 
 # ---------- Firma ----------

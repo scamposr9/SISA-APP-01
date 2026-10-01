@@ -7,7 +7,7 @@ import streamlit as st
 from acta_app import config
 from acta_app.catalogo import clave, limpiar
 from acta_app.models import Acta, ActividadChecklist, duracion, hoy, redondear_a_5_minutos
-from acta_app.ui.catalogo_ui import cargar_catalogo, cargar_protocolos
+from acta_app.ui.catalogo_ui import cargar_catalogo, cargar_protocolos, cargar_repuestos
 from acta_app.ui.components import (
     etiqueta,
     firma_o_camara,
@@ -286,7 +286,7 @@ def formulario_acta() -> Acta:
         obligatorio=False,
         nota="(si llenas una fila, completa las 3 columnas)",
     ):
-        acta.articulos = tabla_articulos(k("articulos"))
+        acta.articulos = tabla_articulos(k("articulos"), cargar_repuestos())
 
     # ---------- Observaciones ----------
     with seccion("observaciones", "Observaciones y/o recomendaciones"):

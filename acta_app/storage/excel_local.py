@@ -108,6 +108,10 @@ class RepositorioExcelLocal:
         ruta = config.PROTOCOLOS_PATH  # solo para pruebas en una computadora (no va a GitHub)
         return ruta.read_bytes() if ruta.exists() else None
 
+    def leer_repuestos(self) -> bytes | None:
+        ruta = config.REPUESTOS_PATH  # solo para pruebas en una computadora (no va a GitHub)
+        return ruta.read_bytes() if ruta.exists() else None
+
     def leer_equipos_nuevos(self) -> bytes | None:
         return self.ruta_equipos_nuevos.read_bytes() if self.ruta_equipos_nuevos.exists() else None
 

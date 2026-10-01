@@ -7,6 +7,7 @@ import streamlit as st
 from acta_app import config
 from acta_app.catalogo import Catalogo
 from acta_app.protocolos import Protocolos
+from acta_app.repuestos import Repuestos
 from acta_app.storage import AlmacenamientoError, obtener_repositorio, usa_sharepoint
 
 
@@ -68,7 +69,22 @@ def cargar_protocolos() -> Protocolos:
         return Protocolos()
 
 
+@st.cache_data(show_spinner=False, ttl=300)
+def _cargar_repuestos() -> Repuestos:
+    datos = obtener_repositorio().leer_repuestos()
+    return Repuestos.desde_bytes(datos) if datos else Repuestos()
+
+
+def cargar_repuestos() -> Repuestos:
+    """Repuestos.xlsx para «Artículos empleados» (se refresca cada 5 minutos)."""
+    try:
+        return _cargar_repuestos()
+    except Exception:  # sin conexión o Excel ilegible: los artículos se escriben a mano
+        return Repuestos()
+
+
 def refrescar_catalogo() -> None:
+    _cargar_repuestos.clear()
     _cargar_protocolos.clear()
     _cargar_sharepoint.clear()
     _cargar_local.clear()

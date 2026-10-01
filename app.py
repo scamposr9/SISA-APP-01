@@ -27,6 +27,7 @@ from acta_app.ui.form import (
 )
 from acta_app.equipos_nuevos import es_equipo_nuevo
 from acta_app.protocolos import Protocolos
+from acta_app.repuestos import Repuestos
 from acta_app.ui.catalogo_ui import cargar_catalogo, refrescar_catalogo
 from acta_app.ui.styles import aplicar_estilos
 from acta_app.validation import validar_acta
@@ -246,6 +247,30 @@ def seccion_base_de_datos() -> None:
         )
 
 
+def mostrar_repuestos() -> None:
+    """Lo que la app entendió de Repuestos.xlsx, para verificarlo."""
+    try:
+        datos = obtener_repositorio().leer_repuestos()
+        repuestos = Repuestos.desde_bytes(datos) if datos else None
+    except Exception as exc:  # Excel ilegible o sin conexión
+        st.error(f"No se pudo leer «{config.SHAREPOINT_REPUESTOS}»: {exc}", icon="❌")
+        return
+    if repuestos is None:
+        st.warning(f"«{config.SHAREPOINT_REPUESTOS}» no está en la carpeta de actas.", icon="⚠️")
+        return
+    for hoja in repuestos.hojas:
+        st.write(f"Hoja **{hoja.nombre}**: columnas «{hoja.columna_codigo}» y «{hoja.columna_descripcion}», "
+                 f"{hoja.filas} fila(s) con código y descripción.")
+    if not repuestos.codigos:
+        st.warning("No se encontró una fila de encabezados con «Código» y «Descripción».", icon="⚠️")
+        return
+    st.success(f"{len(repuestos.codigos)} código(s) distinto(s) para el autocompletado.", icon="✅")
+    st.dataframe(
+        [{"Código": c, "Descripción": repuestos.descripcion(c)} for c in repuestos.opciones()[:200]],
+        hide_index=True,
+    )
+
+
 def mostrar_protocolos() -> None:
     """Lo que la app entendió de Mantenimientos Preventivos.xlsx, para verificarlo."""
     try:
@@ -296,6 +321,8 @@ def seccion_conexion() -> None:
         if c2.button("Actualizar catálogo de equipos", width="stretch"):
             refrescar_catalogo()
             st.success("Se volverá a leer Equipos.xlsx de SharePoint.", icon="✅")
+        if st.button("Ver repuestos detectados (Repuestos.xlsx)", width="stretch"):
+            mostrar_repuestos()
         if st.button("Ver protocolos de mantenimiento preventivo detectados", width="stretch"):
             mostrar_protocolos()
         if st.button("Pasar firmas antiguas a «Firmas Actas»", width="stretch"):

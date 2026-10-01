@@ -70,6 +70,9 @@ _CSS = f"""
   }}
   [class*="st-key-agregar_"] button:hover {{ background: #EEF2F8; color: {NAVY}; border-color: {NAVY}; }}
 
+  /* ---------- Artículos empleados ---------- */
+  .art-head {{ font-size: 13px; font-weight: 600; color: #31333F; }}
+
   /* ---------- Selector de hora ---------- */
   .hora-label {{ font-size: 14px; font-weight: 600; color: #31333F; margin-bottom: 2px; }}
   .hora-sep {{ text-align: center; font-size: 22px; font-weight: 700; padding-bottom: 8px; }}

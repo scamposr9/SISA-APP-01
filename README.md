@@ -87,6 +87,9 @@ client_secret = "<VALOR del client secret (no su ID)>"
   (se ignoran serie, clientes, cronograma y OBS). En el PDF cada actividad sale con su casilla
   marcada (X) o vacía, y las acciones adicionales como «[X] … (Extra)»; en el Excel igual, en las columnas de Acciones.
   «Conexión con SharePoint → Ver protocolos… detectados» muestra lo que la app leyó del Excel.
+- **Artículos empleados:** el código sugiere los repuestos de `Repuestos.xlsx` (todas sus
+  hojas; se busca por código o descripción) y al elegir un código conocido se completa su
+  descripción. Se aceptan códigos que no estén en el catálogo.
 - **Equipos nuevos:** si se guarda un acta cuya serie no está en `Equipos.xlsx`, el equipo se
   anota en `Equipos_nuevos.xlsx` (misma carpeta; se crea con el primero), con el N.° de acta y
   quién lo registró. El autocompletado ya lo sugiere; una persona revisa esa lista, copia las

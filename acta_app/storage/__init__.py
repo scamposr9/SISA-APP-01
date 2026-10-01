@@ -70,6 +70,7 @@ def _repositorio_sharepoint(cfg_items: tuple[tuple[str, str], ...]) -> Repositor
         equipos=cfg.get("equipos", config.SHAREPOINT_EQUIPOS),
         equipos_nuevos=cfg.get("equipos_nuevos", config.SHAREPOINT_EQUIPOS_NUEVOS),
         protocolos=cfg.get("protocolos", config.SHAREPOINT_PROTOCOLOS),
+        repuestos=cfg.get("repuestos", config.SHAREPOINT_REPUESTOS),
     )
 
 

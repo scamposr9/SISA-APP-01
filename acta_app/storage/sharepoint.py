@@ -89,6 +89,7 @@ class RepositorioSharePoint:
         equipos: str = config.SHAREPOINT_EQUIPOS,
         equipos_nuevos: str = config.SHAREPOINT_EQUIPOS_NUEVOS,
         protocolos: str = config.SHAREPOINT_PROTOCOLOS,
+        repuestos: str = config.SHAREPOINT_REPUESTOS,
         segundos_cache: float = 30,
     ):
         self.almacen = almacen
@@ -100,6 +101,7 @@ class RepositorioSharePoint:
         self.ruta_equipos = f"{self.carpeta}/{equipos}"
         self.ruta_equipos_nuevos = f"{self.carpeta}/{equipos_nuevos}"
         self.ruta_protocolos = f"{self.carpeta}/{protocolos}"
+        self.ruta_repuestos = f"{self.carpeta}/{repuestos}"
         # La app vuelve a dibujarse con cada cambio en el formulario: se evita descargar
         # el Excel en cada una. Al guardar siempre se lee la versión más reciente.
         self._segundos_cache = segundos_cache
@@ -150,6 +152,10 @@ class RepositorioSharePoint:
 
     def leer_protocolos(self) -> bytes | None:
         archivo = self.almacen.leer(self.ruta_protocolos)
+        return archivo.datos if archivo else None
+
+    def leer_repuestos(self) -> bytes | None:
+        archivo = self.almacen.leer(self.ruta_repuestos)
         return archivo.datos if archivo else None
 
     def leer_equipos_nuevos(self) -> bytes | None:
@@ -265,6 +271,12 @@ class RepositorioSharePoint:
             if self.almacen.enlace(self.ruta_protocolos)
             else f"{self.ruta_protocolos.rsplit('/', 1)[-1]} no está en la carpeta: no habrá checklist "
             "en el mantenimiento preventivo.",
+        ))
+        pasos.append((
+            bool(self.almacen.enlace(self.ruta_repuestos)),
+            "Repuestos.xlsx encontrado (autocompletado de Artículos empleados)."
+            if self.almacen.enlace(self.ruta_repuestos)
+            else "Repuestos.xlsx no está en la carpeta: los artículos se escriben a mano.",
         ))
         pasos.append((
             True,
