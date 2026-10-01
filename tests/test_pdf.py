@@ -125,3 +125,11 @@ def test_checklist_en_acciones_realizadas(acta_completa):
 def test_sin_checklist_las_acciones_siguen_numeradas(acta_completa):
     texto = _texto(generar_pdf(acta_completa))
     assert "1. Se revisó la bomba" in texto and "(Extra)" not in texto
+
+
+def test_horas_en_formato_24_horas(acta_completa):
+    from datetime import time
+
+    acta_completa.hora_fin_trabajo = time(16, 5)
+    texto = _texto(generar_pdf(acta_completa))
+    assert "09:00" in texto and "16:05" in texto and "PM" not in texto and "AM" not in texto

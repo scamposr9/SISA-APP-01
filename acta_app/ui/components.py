@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import io
 from contextlib import contextmanager
+from datetime import time
 
 import pandas as pd
 from PIL import Image, ImageEnhance, ImageOps
@@ -60,6 +61,29 @@ def seccion(clave: str, titulo: str, obligatorio: bool = True, nota: str | None 
 def etiqueta(texto: str, obligatorio: bool = True) -> str:
     """Etiqueta de widget con asterisco rojo (Streamlit admite colores en markdown)."""
     return f"{texto} :red[**\\***]" if obligatorio else texto
+
+
+# ---------- Selector de hora (24 horas, de 5 en 5 minutos) ----------
+HORAS = [f"{h:02d}" for h in range(24)]
+MINUTOS = [f"{m:02d}" for m in range(0, 60, 5)]
+
+
+def precargar_hora(clave: str, valor: time | None) -> None:
+    """Deja el selector `clave` con esta hora (para corregir un acta)."""
+    st.session_state[f"{clave}_h"] = f"{valor.hour:02d}" if valor else None
+    st.session_state[f"{clave}_m"] = f"{valor.minute:02d}" if valor else None
+
+
+def selector_hora(texto: str, clave: str) -> time | None:
+    """Hora [00-23] : Minutos [00, 05 … 55]. Devuelve None hasta elegir ambos."""
+    st.markdown(f'<div class="hora-label">{texto} {REQ}</div>', unsafe_allow_html=True)
+    c_hora, c_sep, c_min = st.columns([1, 0.15, 1], vertical_alignment="bottom")
+    hora = c_hora.selectbox("Hora", HORAS, index=None, placeholder="HH", key=f"{clave}_h")
+    c_sep.markdown('<div class="hora-sep">:</div>', unsafe_allow_html=True)
+    minuto = c_min.selectbox("Minutos", MINUTOS, index=None, placeholder="MM", key=f"{clave}_m")
+    if hora is None or minuto is None:
+        return None
+    return time(int(hora), int(minuto))
 
 
 # ---------- Lista dinámica de puntos ----------

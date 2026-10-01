@@ -26,6 +26,9 @@ def validar_acta(acta: Acta) -> list[str]:
     ]
     errores += [etiqueta for valor, etiqueta in obligatorios if not valor]
 
+    inicio, fin = acta.hora_inicio_trabajo, acta.hora_fin_trabajo
+    if inicio and fin and fin <= inicio:
+        errores.append("Hora de término (debe ser posterior a la de inicio)")
     if acta.tipo_servicio not in config.TIPOS_SERVICIO:
         errores.append("Tipo de servicio")
     if not acta.estado_final:

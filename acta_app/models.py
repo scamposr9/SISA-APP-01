@@ -137,6 +137,24 @@ def formatear_fecha(valor: date | None) -> str:
     return valor.strftime("%d/%m/%Y") if valor else ""
 
 
+def redondear_a_5_minutos(valor: time | None) -> time | None:
+    """08:32 -> 08:30, 08:33 -> 08:35 (sin pasar de 23:55): el selector va de 5 en 5."""
+    if valor is None:
+        return None
+    minutos = min(round((valor.hour * 60 + valor.minute) / 5) * 5, 23 * 60 + 55)
+    return time(minutos // 60, minutos % 60)
+
+
+def duracion(inicio: time | None, fin: time | None) -> str:
+    """'7 h 35 min' (vacío si falta alguna hora o el fin no es posterior al inicio)."""
+    if inicio is None or fin is None:
+        return ""
+    minutos = (fin.hour * 60 + fin.minute) - (inicio.hour * 60 + inicio.minute)
+    if minutos <= 0:
+        return ""
+    return f"{minutos // 60} h {minutos % 60:02d} min" if minutos >= 60 else f"{minutos} min"
+
+
 def formatear_hora(valor: time | None) -> str:
-    """Formato de 12 horas usado en el prototipo: '08:30 AM'."""
-    return valor.strftime("%I:%M %p") if valor else ""
+    """Formato de 24 horas: '16:05'."""
+    return valor.strftime("%H:%M") if valor else ""

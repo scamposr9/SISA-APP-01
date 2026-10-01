@@ -207,7 +207,7 @@ def _nota_correccion(lz: _Lienzo, acta: Acta) -> None:
     """Recuadro con los datos de la corrección, antes de las firmas."""
     if not acta.revision:
         return
-    fecha = acta.fecha_correccion.strftime("%d/%m/%Y %I:%M %p") if acta.fecha_correccion else "—"
+    fecha = acta.fecha_correccion.strftime("%d/%m/%Y %H:%M") if acta.fecha_correccion else "—"
     lz.fuente(REGULAR, 8.5, INK)
     lineas = [
         f"Revisión {acta.revision} · corregida el {fecha} por {acta.corregido_por or '—'}.",

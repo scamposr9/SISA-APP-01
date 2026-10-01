@@ -48,7 +48,7 @@ sobre ese objeto sin depender de Streamlit.
     Observaciones) tienen **una columna por ítem** ("Antecedente 1", "Antecedente 2"…)
     bajo un encabezado combinado ("Antecedentes Iniciales"). Cada grupo tiene tantas
     columnas como el acta con más ítems; se amplía solo al guardar.
-  - "Fecha", horas y "Fecha de registro" son fechas/horas reales de Excel (hora de Perú).
+  - "Fecha", horas y "Fecha de registro" son fechas/horas reales de Excel (hora de Perú, 24 horas).
   - "PDF original" y "PDF corregido" son enlaces (fórmula HYPERLINK) a los PDF del acta:
     se abren con un clic también en Excel para la web.
 - Hoja **Artículos**: una fila por artículo empleado, enlazada por "N° de Acta".

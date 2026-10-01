@@ -36,3 +36,26 @@ def test_con_checklist_las_acciones_escritas_son_opcionales(acta_completa):
     assert "Acciones realizadas" in validar_acta(acta_completa)
     acta_completa.checklist = [ActividadChecklist("Limpieza", False)]
     assert validar_acta(acta_completa) == []
+
+
+def test_hora_de_termino_debe_ser_posterior_a_la_de_inicio(acta_completa):
+    from datetime import time
+
+    acta_completa.hora_inicio_trabajo, acta_completa.hora_fin_trabajo = time(16, 5), time(8, 30)
+    assert any("Hora de término" in e for e in validar_acta(acta_completa))
+    acta_completa.hora_fin_trabajo = time(16, 5)
+    assert any("Hora de término" in e for e in validar_acta(acta_completa))
+
+
+def test_redondeo_a_5_minutos_y_duracion():
+    from datetime import time
+
+    from acta_app.models import duracion, redondear_a_5_minutos
+
+    assert redondear_a_5_minutos(time(8, 32)) == time(8, 30)
+    assert redondear_a_5_minutos(time(8, 33)) == time(8, 35)
+    assert redondear_a_5_minutos(time(9, 58)) == time(10, 0)
+    assert redondear_a_5_minutos(time(23, 59)) == time(23, 55)
+    assert duracion(time(8, 30), time(16, 5)) == "7 h 35 min"
+    assert duracion(time(8, 30), time(8, 50)) == "20 min"
+    assert duracion(time(9, 0), time(8, 0)) == ""

@@ -6,22 +6,21 @@ import streamlit as st
 
 from acta_app import config
 from acta_app.catalogo import clave, limpiar
-from acta_app.models import Acta, ActividadChecklist, hoy
+from acta_app.models import Acta, ActividadChecklist, duracion, hoy, redondear_a_5_minutos
 from acta_app.ui.catalogo_ui import cargar_catalogo, cargar_protocolos
 from acta_app.ui.components import (
     etiqueta,
     firma_o_camara,
     lista_dinamica,
     poner_primer_punto,
+    precargar_hora,
     precargar_articulos,
     precargar_lista,
     quitar_punto,
     seccion,
+    selector_hora,
     tabla_articulos,
 )
-
-PASO_MINUTOS = 300  # el reloj del prototipo avanza de 5 en 5 minutos
-
 
 FORM_ID = "form_id"
 
@@ -65,14 +64,15 @@ def cargar_en_formulario(acta: Acta) -> None:
         "serie": acta.numero_serie or None,
         # Actas anteriores con «Otro» escrito a mano: al corregirlas hay que elegir una opción.
         "tipo_servicio": acta.tipo_servicio if acta.tipo_servicio in config.TIPOS_SERVICIO else None,
-        "hora_inicio_trabajo": acta.hora_inicio_trabajo,
-        "hora_fin_trabajo": acta.hora_fin_trabajo,
         "estado_final": acta.estado_final,
         "nombre_cliente": acta.nombre_cliente,
         "nombre_representante": acta.nombre_representante,
     }
     for nombre, valor in valores.items():
         st.session_state[k(nombre)] = valor
+    # Las horas de actas anteriores se redondean a 5 minutos (el selector va de 5 en 5).
+    precargar_hora(k("hora_inicio_trabajo"), redondear_a_5_minutos(acta.hora_inicio_trabajo))
+    precargar_hora(k("hora_fin_trabajo"), redondear_a_5_minutos(acta.hora_fin_trabajo))
     for nombre, puntos in (
         ("antecedentes", acta.antecedentes),
         ("acciones", acta.acciones),
@@ -246,19 +246,17 @@ def formulario_acta() -> Acta:
 
     # ---------- Registro de horas ----------
     with seccion("horas", "Registro de horas", obligatorio=False):
-        c1, c2 = st.columns(2)
-        acta.hora_inicio_trabajo = c1.time_input(
-            etiqueta("Hora de inicio de trabajo"),
-            value=None,
-            step=PASO_MINUTOS,
-            key=k("hora_inicio_trabajo"),
-        )
-        acta.hora_fin_trabajo = c2.time_input(
-            etiqueta("Hora de término de trabajo"),
-            value=None,
-            step=PASO_MINUTOS,
-            key=k("hora_fin_trabajo"),
-        )
+        c1, c2 = st.columns(2, gap="large")
+        with c1:
+            acta.hora_inicio_trabajo = selector_hora("Hora de inicio de trabajo", k("hora_inicio_trabajo"))
+        with c2:
+            acta.hora_fin_trabajo = selector_hora("Hora de término de trabajo", k("hora_fin_trabajo"))
+        inicio, fin = acta.hora_inicio_trabajo, acta.hora_fin_trabajo
+        if inicio and fin and fin <= inicio:
+            st.warning("La hora de término debe ser posterior a la de inicio.", icon="⚠️")
+        else:
+            total = duracion(inicio, fin)
+            st.caption("🕒 Formato de 24 horas" + (f" · Duración del trabajo: **{total}**" if total else ""))
 
     # ---------- Acciones realizadas ----------
     with seccion(

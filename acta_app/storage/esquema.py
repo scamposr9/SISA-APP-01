@@ -22,8 +22,8 @@ from acta_app import config
 from acta_app.models import Acta, ActividadChecklist, Articulo
 
 FORMATO_FECHA = "dd/mm/yyyy"
-FORMATO_FECHA_HORA = "dd/mm/yyyy hh:mm:ss AM/PM"
-FORMATO_HORA = "hh:mm AM/PM"
+FORMATO_FECHA_HORA = "dd/mm/yyyy hh:mm:ss"  # 24 horas
+FORMATO_HORA = "hh:mm"  # 24 horas
 
 # El PDF inicial nunca se reemplaza; una corrección agrega su propio PDF (Rev1, Rev2, ...).
 COLUMNA_PDF_ORIGINAL = "PDF original"
@@ -294,9 +294,9 @@ def formatear_valor(valor: object) -> str:
     if valor is None:
         return ""
     if isinstance(valor, datetime):
-        return valor.strftime("%d/%m/%Y %I:%M:%S %p")
+        return valor.strftime("%d/%m/%Y %H:%M:%S")
     if isinstance(valor, date):
         return valor.strftime("%d/%m/%Y")
     if isinstance(valor, time):
-        return valor.strftime("%I:%M %p")
+        return valor.strftime("%H:%M")
     return str(valor)
