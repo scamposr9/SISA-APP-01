@@ -289,15 +289,52 @@ def mostrar_protocolos() -> None:
             icon="⚠️",
         )
         return
-    st.success(f"{len(protocolos.lista)} protocolo(s) detectado(s).", icon="✅")
+    hojas_usadas = sum(len(p.hojas) for p in protocolos.lista)
+    st.success(
+        f"{len(protocolos.lista)} protocolo(s) detectado(s) a partir de {hojas_usadas} hoja(s) "
+        f"del Excel (las hojas con el mismo equipo, marca y modelo se juntan).",
+        icon="✅",
+    )
     st.dataframe(
         [
-            {"Hoja": p.hoja, "Equipo": p.equipo, "Marca": p.marca, "Modelo": p.modelo,
+            {"Hojas": ", ".join(p.hojas), "Equipo": p.equipo, "Marca": p.marca, "Modelo": p.modelo,
              "Registros": p.registros, "Actividades": len(p.actividades),
              "Primera actividad": p.actividades[0]}
             for p in protocolos.lista
         ],
         hide_index=True,
+    )
+
+    if protocolos.descartes:
+        st.warning(f"{len(protocolos.descartes)} hoja(s) del Excel no se pudieron leer como protocolo:", icon="⚠️")
+        st.dataframe([{"Hoja": h, "Motivo": m} for h, m in protocolos.descartes], hide_index=True)
+
+    catalogo = cargar_catalogo()
+    sin_equipo = [p for p in protocolos.lista if not _protocolo_en_catalogo(p, catalogo)]
+    if sin_equipo:
+        st.warning(
+            f"{len(sin_equipo)} protocolo(s) no coinciden con ningún equipo de Equipos.xlsx (misma "
+            "marca y modelo). El checklist solo aparece si el ingeniero escribe esa marca y ese modelo.",
+            icon="⚠️",
+        )
+        st.dataframe(
+            [{"Hojas": ", ".join(p.hojas), "Equipo": p.equipo, "Marca": p.marca, "Modelo": p.modelo}
+             for p in sin_equipo],
+            hide_index=True,
+        )
+    else:
+        st.info("Todos los protocolos coinciden con algún equipo de Equipos.xlsx.", icon="ℹ️")
+
+
+def _protocolo_en_catalogo(protocolo, catalogo) -> bool:
+    """¿Algún equipo de Equipos.xlsx tiene un modelo y una marca que llevan a este protocolo?"""
+    datos = catalogo.datos
+    if datos.empty:
+        return False
+    unicos = datos[["equipo", "marca", "modelo"]].drop_duplicates()
+    return any(
+        Protocolos([protocolo]).buscar(e, m, mo) is protocolo
+        for e, m, mo in unicos.itertuples(index=False)
     )
 
 

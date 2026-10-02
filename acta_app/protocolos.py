@@ -36,6 +36,7 @@ class Protocolo:
     # Cuántas veces aparece el mismo equipo/marca/modelo en el Excel (p. ej. uno por
     # cliente). Con más de una, el ingeniero puede quitar actividades del checklist.
     registros: int = 1
+    hojas: list[str] = field(default_factory=list)  # hojas del Excel de donde salió
 
     @property
     def repetido(self) -> bool:
@@ -51,6 +52,8 @@ def _modelos(texto: str) -> set[str]:
 @dataclass
 class Protocolos:
     lista: list[Protocolo] = field(default_factory=list)
+    # Hojas del Excel que no dieron ningún protocolo, con el motivo (para revisarlas).
+    descartes: list[tuple[str, str]] = field(default_factory=list)
 
     def buscar(self, equipo: str, marca: str, modelo: str) -> Protocolo | None:
         """Protocolo de esa marca y modelo (el equipo solo desempata). Si la marca no
@@ -69,9 +72,17 @@ class Protocolos:
     def desde_bytes(cls, datos: bytes) -> Protocolos:
         wb = load_workbook(io.BytesIO(datos), data_only=True, read_only=True)
         protocolos: list[Protocolo] = []
+        descartes: list[tuple[str, str]] = []
         for ws in wb.worksheets:
-            protocolos += _leer_hoja(ws.title, [list(fila) for fila in ws.iter_rows(values_only=True)])
+            filas = [list(fila) for fila in ws.iter_rows(values_only=True)]
+            de_la_hoja = [p for p in _leer_hoja(ws.title, filas) if p.actividades and (p.modelo or p.marca)]
+            if de_la_hoja:
+                protocolos += de_la_hoja
+            else:
+                descartes.append((ws.title, _motivo_descarte(filas)))
         wb.close()
+        for p in protocolos:
+            p.hojas = [p.hoja]
         # Un mismo equipo/marca/modelo repetido (p. ej. por cliente): se unen sus actividades.
         unidos: dict[tuple[str, str, str], Protocolo] = {}
         for p in protocolos:
@@ -80,9 +91,23 @@ class Protocolos:
                 existentes = {clave(a) for a in unidos[llave].actividades}
                 unidos[llave].actividades += [a for a in p.actividades if clave(a) not in existentes]
                 unidos[llave].registros += 1
+                if p.hoja not in unidos[llave].hojas:
+                    unidos[llave].hojas.append(p.hoja)
             else:
                 unidos[llave] = p
-        return cls([p for p in unidos.values() if p.actividades and (p.modelo or p.marca)])
+        return cls(list(unidos.values()), descartes)
+
+
+def _motivo_descarte(filas: list[list[object]]) -> str:
+    textos = [limpiar(c) for fila in filas for c in fila if limpiar(c)]
+    if not textos:
+        return "hoja vacía"
+    if not any(_es_columna_parte(t) for t in textos):
+        return "no tiene la columna «Parte mantenida»"
+    etiquetas = {e[0] for t in textos if (e := _etiqueta(t))}
+    if not {"marca", "modelo"} & etiquetas:
+        return "no se encontró MARCA ni MODELO"
+    return "no hay actividades debajo de «Parte mantenida» (o falta el valor de MARCA/MODELO)"
 
 
 def _etiqueta(celda: str) -> tuple[str, str] | None:

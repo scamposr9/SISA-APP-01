@@ -108,3 +108,27 @@ def test_mismo_equipo_marca_y_modelo_se_unen_sin_repetir_actividades():
     # Otro equipo con la misma marca y modelo no se mezcla.
     lector = protocolos.buscar("Lector de microplacas", "Labtech", "Auto Elisa PW")
     assert lector.actividades == ["Calibración de filtros"] and not lector.repetido
+
+
+def test_hojas_que_no_dan_protocolo_quedan_con_su_motivo():
+    wb = Workbook()
+    wb.active.title = "Buena"
+    for fila in [["MARCA:", "Hettich"], ["MODELO:", "EBA 200"], ["Parte mantenida"], ["Limpieza"]]:
+        wb.active.append(fila)
+    for nombre, filas in [
+        ("Sin parte", [["MARCA:", "X"], ["MODELO:", "Y"], ["Actividad"], ["Limpieza"]]),
+        ("Sin marca", [["Equipo de prueba"], ["Parte mantenida"], ["Limpieza"]]),
+        ("Vacía", []),
+    ]:
+        ws = wb.create_sheet(nombre)
+        for fila in filas:
+            ws.append(fila)
+
+    protocolos = Protocolos.desde_bytes(_bytes(wb))
+
+    assert [p.hojas for p in protocolos.lista] == [["Buena"]]
+    assert dict(protocolos.descartes) == {
+        "Sin parte": "no tiene la columna «Parte mantenida»",
+        "Sin marca": "no se encontró MARCA ni MODELO",
+        "Vacía": "hoja vacía",
+    }
