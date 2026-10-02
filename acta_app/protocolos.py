@@ -22,7 +22,11 @@ from openpyxl import load_workbook
 
 from acta_app.catalogo import clave, limpiar
 
-_ETIQUETAS = {"equipo": "equipo", "descripcion": "equipo", "marca": "marca", "modelo": "modelo"}
+_ETIQUETAS = {
+    "equipo": "equipo", "descripcion": "equipo", "nombre de equipo": "equipo",
+    "nombre del equipo": "equipo", "nombre equipo": "equipo",
+    "marca": "marca", "modelo": "modelo",
+}
 _NUMERACION = re.compile(r"^\s*(\d+(\.\d+)*|[a-z])\s*[.)\-]\s+", re.IGNORECASE)
 
 

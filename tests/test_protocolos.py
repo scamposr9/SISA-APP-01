@@ -132,3 +132,39 @@ def test_hojas_que_no_dan_protocolo_quedan_con_su_motivo():
         "Sin marca": "no se encontró MARCA ni MODELO",
         "Vacía": "hoja vacía",
     }
+
+
+def test_formato_real_de_mantenimientos_preventivos():
+    """Encabezado «NOMBRE DE EQUIPO | valor | MODELO | valor | MARCA | valor» (sin dos puntos)."""
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "CD Emerald 18"
+    vacio = [None] * 4
+    for fila in [
+        [None, "NOMBRE DE EQUIPO", "Analizador Hematologico", *vacio, "MODELO", None, "CD Emerald",
+         None, None, None, None, "MARCA", "Abbott Diagnostics"],
+        [None, "N° DE SERIE", "030222-010396", *vacio, "AÑO DE FABRICACIÓN", None, "Febrero -2022",
+         None, None, None, None, "FECHA DE INICIO DE FUNCIONAMIENTO", "Julio - 2022"],
+        [None, "PROVEEDOR DEL EQUIPO", None, None, None, None, None, "SISTEMAS ANALÍTICOS S.R.L"],
+        [None, "MANTENIMIENTO PREVENTIVO"],
+        [None, "PARTE MANTENIDA", "CRONOGRAMA 2026", *vacio, None, None, None, None, None, None,
+         None, "RESPONSABLE", "CONFORMIDAD"],
+        [None, None, "E", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"],
+        [None, "Condición inicial", None, "X", *[None] * 5, "X", None, None, None, None, "Soporte Técnico"],
+        [None, "Modulo de jeringa", None, "X", *[None] * 5, "X", None, None, None, None, "Soporte Técnico"],
+        [None, "Back up", None, "X", *[None] * 5, "X", None, None, None, None, "Soporte Técnico"],
+        [],
+        [None, "OBSERVACIONES"],
+        [None, "1-"],
+        [None, "2-"],
+    ]:
+        ws.append(fila)
+
+    protocolos = Protocolos.desde_bytes(_bytes(wb))
+
+    assert not protocolos.descartes
+    protocolo = protocolos.buscar("Analizador Hematologico", "Abbott Diagnostics", "CD Emerald")
+    assert (protocolo.equipo, protocolo.marca, protocolo.modelo) == (
+        "Analizador Hematologico", "Abbott Diagnostics", "CD Emerald",
+    )
+    assert protocolo.actividades == ["Condición inicial", "Modulo de jeringa", "Back up"]
