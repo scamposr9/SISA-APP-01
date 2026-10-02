@@ -210,11 +210,7 @@ class RepositorioExcelLocal:
 
     def _leer_firma(self, numero: str, quien: str) -> bytes | None:
         ruta = self._ruta_firma(numero, quien)
-        anterior = ruta.parent.with_name(f"{ruta.parent.name}_{quien}.png")  # hasta la 0.15
-        for candidata in (ruta, anterior):
-            if candidata.exists():
-                return candidata.read_bytes()
-        return None
+        return ruta.read_bytes() if ruta.exists() else None
 
     def _guardar_firmas(self, acta: Acta) -> None:
         for quien, png in (("cliente", acta.firma_cliente_png), ("representante", acta.firma_representante_png)):

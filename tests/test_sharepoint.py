@@ -242,21 +242,6 @@ def _enlace(celda):
     return leer_hipervinculo(celda.value)[0]
 
 
-def test_firmas_del_formato_anterior_se_ordenan_en_carpetas(repo, sp, acta_completa):
-    repo.guardar(acta_completa, b"%PDF", "Acta_2026-00051.pdf")
-    # Simula un acta guardada con la versión anterior: firmas sueltas en Firmas/.
-    for quien in ("cliente", "representante"):
-        datos = sp.archivos.pop(f"{CARPETA}/Firmas Actas/2026-00051/{quien}.png")[0]
-        sp.escribir(f"{CARPETA}/Firmas/2026-00051_{quien}.png", datos)
-
-    assert repo.ordenar_firmas() == 2
-    assert f"{CARPETA}/Firmas Actas/2026-00051/cliente.png" in sp.archivos
-    assert f"{CARPETA}/Firmas/2026-00051_cliente.png" not in sp.archivos
-    assert f"{CARPETA}/Firmas Actas/2026-00051/cliente.png" in sp.archivos
-    assert repo.ordenar_firmas() == 0
-    assert repo.obtener("2026-00051").firma_representante_png
-
-
 def test_equipo_nuevo_crea_equipos_nuevos_con_el_primero_y_no_duplica(repo, sp, acta_completa):
     from acta_app.catalogo import Catalogo
     from acta_app.equipos_nuevos import es_equipo_nuevo
@@ -281,16 +266,6 @@ def test_equipo_nuevo_crea_equipos_nuevos_con_el_primero_y_no_duplica(repo, sp, 
     # El autocompletado ya los conoce: deja de ser "nuevo".
     catalogo = Catalogo.desde_bytes(repo.leer_equipos_nuevos())
     assert catalogo.opciones("equipo", {}) and not es_equipo_nuevo(catalogo, otra)
-
-
-def test_firmas_de_la_carpeta_firmas_pasan_a_firmas_actas(repo, sp, acta_completa):
-    repo.guardar(acta_completa, b"%PDF", "Acta_2026-00051.pdf")
-    datos = sp.archivos.pop(f"{CARPETA}/Firmas Actas/2026-00051/cliente.png")[0]
-    sp.escribir(f"{CARPETA}/Firmas/2026-00051/cliente.png", datos)  # versión 0.18
-
-    assert repo.obtener("2026-00051").firma_cliente_png == datos
-    assert f"{CARPETA}/Firmas Actas/2026-00051/cliente.png" in sp.archivos
-    assert f"{CARPETA}/Firmas/2026-00051/cliente.png" not in sp.archivos
 
 
 def test_nombres_de_ingenieros_desde_un_excel(repo, sp):

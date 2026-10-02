@@ -363,18 +363,6 @@ def seccion_conexion() -> None:
             mostrar_repuestos()
         if st.button("Ver protocolos de mantenimiento preventivo detectados", width="stretch"):
             mostrar_protocolos()
-        if st.button("Pasar firmas antiguas a «Firmas Actas»", width="stretch"):
-            try:
-                with st.spinner("Moviendo firmas…"):
-                    movidas = obtener_repositorio().ordenar_firmas()
-            except AlmacenamientoError as exc:
-                st.error(str(exc), icon="❌")
-            else:
-                st.success(
-                    f"Listo: {movidas} firma(s) movidas a «Firmas Actas/<N.° de acta>/»."
-                    if movidas else "No había firmas sueltas por ordenar.",
-                    icon="✅",
-                )
 
 
 encabezado()
