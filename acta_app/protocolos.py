@@ -33,6 +33,13 @@ class Protocolo:
     modelo: str = ""
     actividades: list[str] = field(default_factory=list)
     hoja: str = ""
+    # Cuántas veces aparece el mismo equipo/marca/modelo en el Excel (p. ej. uno por
+    # cliente). Con más de una, el ingeniero puede quitar actividades del checklist.
+    registros: int = 1
+
+    @property
+    def repetido(self) -> bool:
+        return self.registros > 1
 
 
 def _modelos(texto: str) -> set[str]:
@@ -72,6 +79,7 @@ class Protocolos:
             if llave in unidos:
                 existentes = {clave(a) for a in unidos[llave].actividades}
                 unidos[llave].actividades += [a for a in p.actividades if clave(a) not in existentes]
+                unidos[llave].registros += 1
             else:
                 unidos[llave] = p
         return cls([p for p in unidos.values() if p.actividades and (p.modelo or p.marca)])

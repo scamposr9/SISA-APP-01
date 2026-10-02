@@ -293,7 +293,8 @@ def mostrar_protocolos() -> None:
     st.dataframe(
         [
             {"Hoja": p.hoja, "Equipo": p.equipo, "Marca": p.marca, "Modelo": p.modelo,
-             "Actividades": len(p.actividades), "Primera actividad": p.actividades[0]}
+             "Registros": p.registros, "Actividades": len(p.actividades),
+             "Primera actividad": p.actividades[0]}
             for p in protocolos.lista
         ],
         hide_index=True,

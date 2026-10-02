@@ -104,7 +104,7 @@ def test_mismo_equipo_marca_y_modelo_se_unen_sin_repetir_actividades():
 
     lavador = protocolos.buscar("Lavador de microplacas", "Labtech", "Auto Elisa PW")
     assert lavador.actividades == ["Limpieza exterior", "Revisión de bomba", "Limpieza de peines de lavado"]
+    assert lavador.repetido and lavador.registros == 2
     # Otro equipo con la misma marca y modelo no se mezcla.
-    assert protocolos.buscar("Lector de microplacas", "Labtech", "Auto Elisa PW").actividades == [
-        "Calibración de filtros",
-    ]
+    lector = protocolos.buscar("Lector de microplacas", "Labtech", "Auto Elisa PW")
+    assert lector.actividades == ["Calibración de filtros"] and not lector.repetido

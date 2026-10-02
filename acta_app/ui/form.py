@@ -152,6 +152,11 @@ def _marcar_todas(actividades: list[str], valor: bool) -> None:
         st.session_state[_clave_actividad(texto)] = valor
 
 
+def _quitar_actividad(texto: str) -> None:
+    st.session_state[k("chk_quitadas")].append(clave(texto))
+    st.session_state.pop(_clave_actividad(texto), None)
+
+
 def _checklist_preventivo(acta: Acta, original: Acta | None) -> list[ActividadChecklist]:
     """Checklist de «Parte mantenida» según la marca y el modelo del equipo."""
     guardado = st.session_state.get(k("checklist_guardado")) or []
@@ -175,14 +180,39 @@ def _checklist_preventivo(acta: Acta, original: Acta | None) -> list[ActividadCh
             st.caption("Elige la marca y el modelo del equipo para cargar el checklist del mantenimiento.")
         return []
 
+    # Equipo con varios registros en el Excel (p. ej. uno por cliente): sus actividades se
+    # unen y el ingeniero puede quitar las que no correspondan a este cliente.
+    se_puede_quitar = protocolo is not None and protocolo.repetido
+    quitadas: list[str] = st.session_state.setdefault(k("chk_quitadas"), [])
+    if se_puede_quitar:
+        actividades = [a for a in actividades if clave(a) not in quitadas]
+
     st.markdown(f"**Checklist del mantenimiento preventivo** · {origen}")
-    c1, c2, _ = st.columns([1, 1, 2])
+    if se_puede_quitar:
+        st.caption(
+            f"Este equipo tiene {protocolo.registros} registros en «{config.SHAREPOINT_PROTOCOLOS}» "
+            "(sus actividades se juntaron). Quita con × las que no correspondan a este cliente."
+        )
+    c1, c2, c3 = st.columns([1, 1, 2])
     c1.button("Marcar todas", key=k("chk_todas"), on_click=_marcar_todas, args=(actividades, True))
     c2.button("Desmarcar todas", key=k("chk_ninguna"), on_click=_marcar_todas, args=(actividades, False))
-    checklist = [
-        ActividadChecklist(texto, st.checkbox(texto, key=_clave_actividad(texto)))
-        for texto in actividades
-    ]
+    if se_puede_quitar and quitadas:
+        c3.button(
+            f"Restaurar {len(quitadas)} actividad(es) quitada(s)", key=k("chk_restaurar"),
+            on_click=quitadas.clear,
+        )
+    checklist = []
+    for texto in actividades:
+        if se_puede_quitar:
+            c_chk, c_quitar = st.columns([12, 1], vertical_alignment="center")
+            hecha = c_chk.checkbox(texto, key=_clave_actividad(texto))
+            c_quitar.button(
+                "×", key=_clave_actividad(texto) + "_quitar", help="Quitar esta actividad del acta",
+                on_click=_quitar_actividad, args=(texto,),
+            )
+        else:
+            hecha = st.checkbox(texto, key=_clave_actividad(texto))
+        checklist.append(ActividadChecklist(texto, hecha))
     hechas = sum(a.hecha for a in checklist)
     st.caption(
         f"{hechas} de {len(checklist)} actividades realizadas. Las no marcadas saldrán en el PDF "

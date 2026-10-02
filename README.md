@@ -86,6 +86,9 @@ client_secret = "<VALOR del client secret (no su ID)>"
   muestra el checklist de la columna «Parte mantenida» de `Mantenimientos Preventivos.xlsx`
   (se ignoran serie, clientes, cronograma y OBS). En el PDF cada actividad sale con su casilla
   marcada (X) o vacía, y las acciones adicionales como «[X] … (Extra)»; en el Excel igual, en las columnas de Acciones.
+  Si un mismo equipo/marca/modelo aparece varias veces en el Excel (p. ej. por cliente), sus
+  actividades se juntan y el ingeniero puede quitar con × las que no correspondan; con un solo
+  registro, el checklist no se puede recortar.
   «Conexión con SharePoint → Ver protocolos… detectados» muestra lo que la app leyó del Excel.
 - **Artículos empleados:** el código sugiere los repuestos de `Repuestos.xlsx` (todas sus
   hojas, columnas de código y descripción; filas repetidas se toman una vez) y al elegir un código conocido se completa su
