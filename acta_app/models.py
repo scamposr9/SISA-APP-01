@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date, datetime, time
 
-from acta_app.config import TIPO_SERVICIO_OTRO, ZONA_HORARIA
+from acta_app.config import ASPECTOS_ENCUESTA, NOTA_MAXIMA_ENCUESTA, TIPO_SERVICIO_OTRO, ZONA_HORARIA
 
 
 @dataclass
@@ -60,6 +60,21 @@ class ActividadChecklist:
 
 
 @dataclass
+class EncuestaSatisfaccion:
+    """Respuesta del cliente al terminar el servicio (cada aspecto de 1 a 5)."""
+
+    puntajes: dict[str, int] = field(default_factory=dict)  # aspecto -> 1..5
+    comentario: str = ""
+    fecha: datetime | None = None
+
+    @property
+    def nota(self) -> float:
+        """Suma de los aspectos llevada a escala de 0 a 20 (todo 5 -> 20; todo 1 -> 4)."""
+        maximo = 5 * len(ASPECTOS_ENCUESTA)
+        return round(sum(self.puntajes.get(a, 0) for a in ASPECTOS_ENCUESTA) * NOTA_MAXIMA_ENCUESTA / maximo, 1)
+
+
+@dataclass
 class Acta:
     numero: str = ""
     fecha: date | None = None
@@ -101,6 +116,9 @@ class Acta:
     fecha_correccion: datetime | None = None
     corregido_por: str = ""
     motivo_correccion: str = ""
+
+    # Encuesta de satisfacción (se responde después de guardar el acta).
+    encuesta: EncuestaSatisfaccion | None = None
 
     # ---------- Valores derivados, en el mismo formato que el prototipo ----------
     @property

@@ -17,6 +17,7 @@ from acta_app.storage import (
     usa_sharepoint,
 )
 from acta_app.ui.components import encabezado, etiqueta, seccion
+from acta_app.ui.encuesta import abrir_encuesta, numero_en_la_direccion, pagina_encuesta
 from acta_app.ui.form import (
     acta_en_correccion,
     cargar_en_formulario,
@@ -75,6 +76,11 @@ def exigir_inicio_de_sesion() -> None:
 
 exigir_inicio_de_sesion()
 
+# Página de la encuesta de satisfacción (?encuesta=<N.° de acta>): solo la encuesta.
+if numero_encuesta := numero_en_la_direccion():
+    pagina_encuesta(numero_encuesta)
+    st.stop()
+
 
 @st.dialog("Vista previa de la fila (Excel)", width="large")
 def dialogo_fila(acta: Acta) -> None:
@@ -105,6 +111,9 @@ def dialogo_guardado(acta: Acta, pdf: bytes, nombre_pdf: str, total_actas: int, 
     )
     if enlace_pdf.startswith("http"):
         st.link_button("Abrir el PDF en SharePoint", enlace_pdf, width="stretch")
+    if st.button("Abrir encuesta de satisfacción al cliente", on_click=abrir_encuesta,
+                 args=(acta.numero,), width="stretch"):
+        st.rerun()
     # La limpieza va en el callback (antes de dibujar) y st.rerun() recarga toda la página,
     # no solo la ventana.
     if st.button("Registrar una nueva acta", on_click=limpiar_formulario, width="stretch"):

@@ -24,7 +24,9 @@ from acta_app import config
 from acta_app.storage.esquema import (
     COLUMNAS_PDF,
     FORMATO_FECHA,
+    BLOQUES,
     GRUPOS,
+    BloqueFijo,
     Campo,
     Columna,
     Registro,
@@ -89,7 +91,9 @@ def leer_registros(ws: Worksheet) -> list[Registro]:
         for celda, columna in zip(fila, columnas):
             if columna is None:
                 continue
-            if isinstance(columna.bloque, Campo):
+            if isinstance(columna.bloque, BloqueFijo):
+                registro.valores[columna.encabezado] = celda.value
+            elif isinstance(columna.bloque, Campo):
                 registro.valores[columna.bloque.nombre] = celda.value
                 if columna.bloque.nombre in COLUMNAS_PDF:
                     formula = leer_hipervinculo(celda.value)
@@ -151,8 +155,10 @@ def _encabezados(ws: Worksheet, columnas: list[Columna]) -> None:
         ws.column_dimensions[get_column_letter(i)].width = columna.ancho
 
     # Encabezado combinado sobre las columnas de cada grupo.
-    for grupo in GRUPOS:
+    for grupo in [*GRUPOS, *BLOQUES]:
         posiciones = [i for i, c in enumerate(columnas, start=1) if c.bloque is grupo]
+        if not posiciones:
+            continue
         ws.cell(FILA_GRUPOS, posiciones[0], grupo.titulo)
         if len(posiciones) > 1:
             ws.merge_cells(

@@ -15,6 +15,7 @@ from acta_app.storage.base import (
     ActaDuplicadaError,
     ActaNoEncontradaError,
     AlmacenamientoError,
+    EncuestaYaRespondidaError,
     RepositorioActas,
     ResultadoGuardado,
 )
@@ -79,6 +80,7 @@ __all__ = [
     "ActaDuplicadaError",
     "ActaNoEncontradaError",
     "AlmacenamientoError",
+    "EncuestaYaRespondidaError",
     "RepositorioActas",
     "RepositorioExcelLocal",
     "RepositorioSharePoint",

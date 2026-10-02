@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 
 # Versión visible al pie de la app. Además se muestra el commit de GitHub desplegado
 # (ver version_desplegada), que cambia solo con cada actualización.
-APP_VERSION = "0.22.3"
+APP_VERSION = "0.23.0"
 
 # El servidor (p. ej. Streamlit Cloud) corre en UTC; fechas y horas se toman en hora de Perú.
 ZONA_HORARIA = ZoneInfo("America/Lima")
@@ -73,6 +73,17 @@ TIPOS_SERVICIO = [
 TIPO_SERVICIO_OTRO = "Otro"
 
 ESTADOS_FINALES = ["Operativo", "Inoperativo", "En Observación"]
+
+# ---------- Encuesta de satisfacción del cliente ----------
+ASPECTOS_ENCUESTA = [
+    "Puntualidad del trabajador",
+    "Respeto y disposición",
+    "Claridad en la explicación técnica",
+    "Orden y limpieza al terminar",
+    "Eficiencia en el trabajo",
+]
+ESCALA_ENCUESTA = ["Muy malo", "Malo", "Regular", "Bueno", "Muy bueno"]  # 1 a 5
+NOTA_MAXIMA_ENCUESTA = 20  # la suma de los aspectos se lleva a escala vigesimal
 
 
 # ---------- Paleta (idéntica al prototipo HTML) ----------

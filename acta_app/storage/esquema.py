@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, time
 
 from acta_app import config
-from acta_app.models import Acta, ActividadChecklist, Articulo
+from acta_app.models import Acta, ActividadChecklist, Articulo, EncuestaSatisfaccion
 
 FORMATO_FECHA = "dd/mm/yyyy"
 FORMATO_FECHA_HORA = "dd/mm/yyyy hh:mm:ss"  # 24 horas
@@ -72,6 +72,37 @@ class Grupo:
         return (int(m.group(1)) - 1, 0) if sub is None else None
 
 
+@dataclass(frozen=True)
+class BloqueFijo:
+    """Columnas fijas bajo un encabezado combinado que solo aparecen en el Excel cuando
+    alguna acta tiene datos (p. ej. la encuesta de satisfacción)."""
+
+    titulo: str
+    columnas: tuple[str, ...]
+    valores: Callable[[Acta], tuple | None]
+    anchos: tuple[int, ...]
+    formatos: tuple[str | None, ...] = ()
+
+
+def _encuesta(acta: Acta) -> tuple | None:
+    e = acta.encuesta
+    if e is None:
+        return None
+    return (*(e.puntajes.get(a) for a in config.ASPECTOS_ENCUESTA), e.nota, e.comentario or None, e.fecha)
+
+
+COLUMNA_NOTA_ENCUESTA = f"Calificación final (/{config.NOTA_MAXIMA_ENCUESTA})"
+COLUMNA_COMENTARIO_ENCUESTA = "Comentarios y sugerencias"
+COLUMNA_FECHA_ENCUESTA = "Fecha de la encuesta"
+BLOQUE_ENCUESTA = BloqueFijo(
+    "Encuesta de satisfacción del servicio",
+    (*config.ASPECTOS_ENCUESTA, COLUMNA_NOTA_ENCUESTA, COLUMNA_COMENTARIO_ENCUESTA, COLUMNA_FECHA_ENCUESTA),
+    _encuesta,
+    anchos=(*[18] * len(config.ASPECTOS_ENCUESTA), 16, 40, 20),
+    formatos=(*[None] * len(config.ASPECTOS_ENCUESTA), "0.0", None, None),
+)
+
+
 def _textos(extraer: Callable[[Acta], list[str]]) -> Callable[[Acta], list[tuple]]:
     return lambda acta: [(t,) for t in extraer(acta)]
 
@@ -116,10 +147,13 @@ ESQUEMA: list[Campo | Grupo] = [
     # Los nombres y enlaces de los PDF los asigna el repositorio al guardar.
     Campo(COLUMNA_PDF_ORIGINAL, lambda a: None, ancho=26),
     Campo(COLUMNA_PDF_CORREGIDO, lambda a: None, ancho=30),
+    BLOQUE_ENCUESTA,
 ]
 
 CAMPOS = {c.nombre: c for c in ESQUEMA if isinstance(c, Campo)}
 GRUPOS = [g for g in ESQUEMA if isinstance(g, Grupo)]
+BLOQUES = [b for b in ESQUEMA if isinstance(b, BloqueFijo)]
+COLUMNAS_ENCUESTA = BLOQUE_ENCUESTA.columnas
 
 
 @dataclass
@@ -144,9 +178,33 @@ def registro_desde_acta(acta: Acta) -> Registro:
     for bloque in ESQUEMA:
         if isinstance(bloque, Campo):
             registro.valores[bloque.nombre] = bloque.valor(acta)
+        elif isinstance(bloque, BloqueFijo):
+            valores = bloque.valores(acta)
+            if valores:
+                registro.valores.update(zip(bloque.columnas, valores))
         else:
             registro.items[bloque.titulo] = bloque.items(acta)
     return registro
+
+
+def encuesta_desde_registro(registro: Registro) -> EncuestaSatisfaccion | None:
+    puntajes = {}
+    for aspecto in config.ASPECTOS_ENCUESTA:
+        valor = registro.valores.get(aspecto)
+        if valor not in (None, ""):
+            puntajes[aspecto] = int(valor)
+    if not puntajes:
+        return None
+    fecha = registro.valores.get(COLUMNA_FECHA_ENCUESTA)
+    return EncuestaSatisfaccion(
+        puntajes=puntajes,
+        comentario=str(registro.valores.get(COLUMNA_COMENTARIO_ENCUESTA) or "").strip(),
+        fecha=fecha if isinstance(fecha, datetime) else None,
+    )
+
+
+def tiene_encuesta(registro: Registro) -> bool:
+    return any(registro.valores.get(a) not in (None, "") for a in config.ASPECTOS_ENCUESTA)
 
 
 def acta_desde_registro(registro: Registro) -> Acta:
@@ -203,6 +261,7 @@ def acta_desde_registro(registro: Registro) -> Acta:
         fecha_correccion=v.get("Fecha de corrección") if isinstance(v.get("Fecha de corrección"), datetime) else None,
         corregido_por=texto("Corregido por"),
         motivo_correccion=texto("Motivo de corrección"),
+        encuesta=encuesta_desde_registro(registro),
     )
 
 
@@ -222,7 +281,7 @@ def _a_hora(valor: object) -> time | None:
 @dataclass
 class Columna:
     encabezado: str
-    bloque: Campo | Grupo
+    bloque: Campo | Grupo | BloqueFijo
     item: int = 0
     subcampo: int = 0
 
@@ -230,6 +289,8 @@ class Columna:
     def ancho(self) -> int:
         if isinstance(self.bloque, Campo):
             return self.bloque.ancho
+        if isinstance(self.bloque, BloqueFijo):
+            return self.bloque.anchos[self.subcampo]
         anchos = self.bloque.anchos
         return anchos[self.subcampo] if self.subcampo < len(anchos) else anchos[-1]
 
@@ -241,11 +302,18 @@ class Columna:
 
     @property
     def formato(self) -> str | None:
+        if isinstance(self.bloque, BloqueFijo):
+            formatos = self.bloque.formatos
+            if self.encabezado == COLUMNA_FECHA_ENCUESTA:
+                return FORMATO_FECHA_HORA
+            return formatos[self.subcampo] if self.subcampo < len(formatos) else None
         return self.bloque.formato if isinstance(self.bloque, Campo) else None
 
     def valor(self, registro: Registro) -> object:
         if isinstance(self.bloque, Campo):
             return registro.valores.get(self.bloque.nombre)
+        if isinstance(self.bloque, BloqueFijo):
+            return registro.valores.get(self.encabezado)
         items = registro.items.get(self.bloque.titulo, [])
         if self.item >= len(items):
             return None
@@ -258,6 +326,11 @@ def disposicion(registros: list[Registro]) -> list[Columna]:
     for bloque in ESQUEMA:
         if isinstance(bloque, Campo):
             columnas.append(Columna(bloque.nombre, bloque))
+            continue
+        if isinstance(bloque, BloqueFijo):
+            # Solo aparece cuando alguna acta tiene datos (p. ej. la primera encuesta).
+            if any(r.valores.get(c) not in (None, "") for r in registros for c in bloque.columnas):
+                columnas += [Columna(c, bloque, 0, i) for i, c in enumerate(bloque.columnas)]
             continue
         n = max([len(r.items.get(bloque.titulo, [])) for r in registros] + [1])
         encabezados = iter(bloque.encabezados(n))
@@ -275,6 +348,8 @@ def interpretar_encabezados(encabezados: list[str]) -> list[Columna | None]:
         columna = None
         if encabezado in CAMPOS:
             columna = Columna(encabezado, CAMPOS[encabezado])
+        elif bloque := next((b for b in BLOQUES if encabezado in b.columnas), None):
+            columna = Columna(encabezado, bloque, 0, bloque.columnas.index(encabezado))
         else:
             for grupo in GRUPOS:
                 posicion = grupo.interpretar(encabezado)

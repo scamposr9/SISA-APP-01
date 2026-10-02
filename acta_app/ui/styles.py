@@ -70,6 +70,19 @@ _CSS = f"""
   }}
   [class*="st-key-agregar_"] button:hover {{ background: #EEF2F8; color: {NAVY}; border-color: {NAVY}; }}
 
+  /* ---------- Encuesta de satisfacción ---------- */
+  .esc-escala {{ display: flex; }}
+  .esc-head {{ flex: 1; text-align: center; font-weight: 700; font-size: 13px; line-height: 1.25; }}
+  .esc-aspecto {{ font-size: 15px; }}
+  /* Las 5 casillas de cada aspecto ocupan todo el ancho, alineadas bajo la escala. */
+  .st-key-encuesta .stElementContainer:has(.stRadio), .st-key-encuesta .stRadio {{ width: 100% !important; }}
+  .st-key-encuesta [role="radiogroup"] {{ display: flex; flex-wrap: nowrap; gap: 0; width: 100%; }}
+  .st-key-encuesta [role="radiogroup"] > div {{ flex: 1; display: flex; justify-content: center; }}
+  .st-key-encuesta [data-testid="stRadioOption"] {{ margin: 0; padding: 6px 0; width: 100%; justify-content: center; }}
+  .st-key-encuesta [data-testid="stRadioOption"] > div {{ margin: 0; justify-content: center; }}
+  .st-key-encuesta [data-testid="stRadioOption"] > div > div:first-child {{ margin: 0; }}
+  .st-key-encuesta [data-testid="stRadioOption"] [data-testid="stMarkdownContainer"] {{ display: none; }}
+
   /* ---------- Artículos empleados ---------- */
   .art-head {{ font-size: 13px; font-weight: 600; color: #31333F; }}
 

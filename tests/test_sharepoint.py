@@ -310,3 +310,47 @@ def test_nombres_de_ingenieros_desde_el_excel_suelto_en_firmas_ingenieros(repo, 
     nombres, origen = repo.leer_nombres_ingenieros()
     assert nombres == ["Ana Ruiz", "Sebastián Campos"]
     assert origen == f"{CARPETA}/Firmas Ingenieros/Nombres Ingenieria.xlsx"
+
+
+def test_encuesta_se_guarda_en_la_fila_y_crea_sus_columnas(repo, sp, acta_completa):
+    from acta_app.models import EncuestaSatisfaccion
+    from acta_app.storage import EncuestaYaRespondidaError
+
+    repo.guardar(acta_completa, b"%PDF", "Acta_2026-00051.pdf")
+    assert "Puntualidad del trabajador" not in _fila(sp)  # sin encuestas, no hay columnas
+
+    puntajes = dict.fromkeys(
+        ["Puntualidad del trabajador", "Respeto y disposición", "Claridad en la explicación técnica",
+         "Orden y limpieza al terminar", "Eficiencia en el trabajo"], 5)
+    repo.guardar_encuesta("2026-00051", EncuestaSatisfaccion(puntajes, "Muy buen servicio"))
+
+    ws = load_workbook(io.BytesIO(sp.archivos[f"{CARPETA}/Actas.xlsx"][0]))["Actas"]
+    encabezados = [c.value for c in ws[2]]
+    inicio = encabezados.index("Puntualidad del trabajador")
+    assert encabezados[inicio - 1] == "PDF corregido"
+    assert ws.cell(1, inicio + 1).value == "Encuesta de satisfacción del servicio"
+    fila = _fila(sp)
+    assert fila["Calificación final (/20)"].value == 20
+    assert fila["Comentarios y sugerencias"].value == "Muy buen servicio"
+    assert fila["Fecha de la encuesta"].value is not None
+
+    with pytest.raises(EncuestaYaRespondidaError):
+        repo.guardar_encuesta("2026-00051", EncuestaSatisfaccion(puntajes))
+
+    # Una corrección del acta conserva la encuesta.
+    acta = repo.obtener("2026-00051")
+    assert acta.encuesta.nota == 20
+    acta.encuesta = None
+    acta.revision, acta.corregido_por, acta.motivo_correccion = 1, "Ana", "Tipeo"
+    repo.corregir(acta, b"%PDF rev1", "Acta_2026-00051_Rev1.pdf")
+    assert _fila(sp)["Calificación final (/20)"].value == 20
+
+
+def test_nota_de_la_encuesta_sobre_20():
+    from acta_app.models import EncuestaSatisfaccion
+
+    aspectos = ["Puntualidad del trabajador", "Respeto y disposición", "Claridad en la explicación técnica",
+                "Orden y limpieza al terminar", "Eficiencia en el trabajo"]
+    assert EncuestaSatisfaccion(dict.fromkeys(aspectos, 5)).nota == 20
+    assert EncuestaSatisfaccion(dict.fromkeys(aspectos, 1)).nota == 4
+    assert EncuestaSatisfaccion(dict(zip(aspectos, [5, 4, 4, 3, 5]))).nota == 16.8

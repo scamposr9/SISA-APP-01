@@ -13,13 +13,15 @@ import pandas as pd
 from openpyxl import Workbook, load_workbook
 
 from acta_app import config, equipos_nuevos, ingenieros
-from acta_app.models import Acta, ahora
+from acta_app.models import Acta, EncuestaSatisfaccion, ahora
 from acta_app.storage.base import (
     ActaDuplicadaError,
     ActaNoEncontradaError,
     AlmacenamientoError,
     ResultadoGuardado,
     normalizar_numero,
+    copiar_encuesta,
+    poner_encuesta,
 )
 from acta_app.storage.esquema import (
     COLUMNA_PDF_CORREGIDO,
@@ -173,6 +175,7 @@ class RepositorioExcelLocal:
                 nuevo = registro_desde_acta(acta)
                 # Se mantienen el registro original y su PDF.
                 nuevo.valores["Fecha de registro"] = anterior.valores.get("Fecha de registro")
+                copiar_encuesta(anterior, nuevo)
                 nuevo.poner_pdf(
                     COLUMNA_PDF_ORIGINAL,
                     anterior.valores.get(COLUMNA_PDF_ORIGINAL),
@@ -190,6 +193,16 @@ class RepositorioExcelLocal:
             except OSError as exc:
                 raise AlmacenamientoError(f"No se pudo guardar la corrección: {exc}") from exc
             return ResultadoGuardado(total_actas=len(registros), ubicacion_pdf=str(ruta_pdf))
+
+    def guardar_encuesta(self, numero: str, encuesta: EncuestaSatisfaccion) -> None:
+        encuesta.fecha = encuesta.fecha or ahora()
+        with _LOCK:
+            registros = self._registros()
+            poner_encuesta(self._buscar(registros, numero), encuesta)
+            try:
+                self._guardar_atomico(construir_libro(registros))
+            except OSError as exc:
+                raise AlmacenamientoError(f"No se pudo guardar la encuesta: {exc}") from exc
 
     # ---------- Internos ----------
     @staticmethod

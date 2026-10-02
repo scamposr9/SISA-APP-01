@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 import pandas as pd
 
-from acta_app.models import Acta
+from acta_app.models import Acta, EncuestaSatisfaccion
+from acta_app.storage.esquema import BLOQUE_ENCUESTA, COLUMNAS_ENCUESTA, tiene_encuesta
+
+if TYPE_CHECKING:
+    from acta_app.storage.esquema import Registro
 
 
 class ActaDuplicadaError(Exception):
@@ -16,6 +20,10 @@ class ActaDuplicadaError(Exception):
 
 class ActaNoEncontradaError(Exception):
     """No hay ningún acta registrada con ese número."""
+
+
+class EncuestaYaRespondidaError(Exception):
+    """El acta ya tiene una encuesta de satisfacción registrada."""
 
 
 class AlmacenamientoError(Exception):
@@ -48,6 +56,11 @@ class RepositorioActas(Protocol):
         ...
 
     def leer_actas(self) -> pd.DataFrame: ...
+
+    def guardar_encuesta(self, numero: str, encuesta: EncuestaSatisfaccion) -> None:
+        """Escribe la encuesta en la fila del acta. Lanza ActaNoEncontradaError o
+        EncuestaYaRespondidaError."""
+        ...
 
     def excel_bytes(self) -> bytes | None:
         """Contenido actual del Excel maestro, para descargarlo desde la app."""
@@ -87,6 +100,19 @@ class RepositorioActas(Protocol):
         """Anota el equipo del acta en Equipos_nuevos.xlsx (lo crea si no existe).
         False si su serie ya estaba anotada."""
         ...
+
+
+def copiar_encuesta(anterior: Registro, nuevo: Registro) -> None:
+    """Una corrección del acta conserva la encuesta ya respondida por el cliente."""
+    for columna in COLUMNAS_ENCUESTA:
+        if columna in anterior.valores:
+            nuevo.valores[columna] = anterior.valores[columna]
+
+
+def poner_encuesta(registro: Registro, encuesta: EncuestaSatisfaccion) -> None:
+    if tiene_encuesta(registro):
+        raise EncuestaYaRespondidaError(registro.numero)
+    registro.valores.update(zip(COLUMNAS_ENCUESTA, BLOQUE_ENCUESTA.valores(Acta(encuesta=encuesta))))
 
 
 def normalizar_numero(numero: str) -> str:
