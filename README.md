@@ -101,6 +101,13 @@ client_secret = "<VALOR del client secret (no su ID)>"
   lleva a escala de 20 (todo 5 = 20). Con la primera encuesta aparece en `Actas.xlsx`, después
   de «PDF corregido», el bloque «Encuesta de satisfacción del servicio». Una corrección del acta
   conserva la encuesta.
+- **Encuesta por correo:** en «Conformidad» se escribe dos veces el correo del cliente (opcional;
+  no puede ser @sistemasanaliticos.com). Al guardar el acta, la app envía desde
+  `encuestas@sistemasanaliticos.com` (Microsoft Graph, permiso Mail.Send) un enlace de un solo uso
+  que vence en 24 horas y abre la encuesta sin iniciar sesión. En Actas.xlsx se guardan el correo,
+  la fecha de envío, el vencimiento y el hash del código (nunca el código). «Reenviar encuesta a
+  otro correo» (vista de desarrolladores) anula el enlace anterior. Opcional en Secrets:
+  `[correo]` con `remitente` y `url_app`.
 - **Equipos nuevos:** si se guarda un acta cuya serie no está en `Equipos.xlsx`, el equipo se
   anota en `Equipos_nuevos.xlsx` (misma carpeta; se crea con el primero), con el N.° de acta y
   quién lo registró. El autocompletado ya lo sugiere; una persona revisa esa lista, copia las

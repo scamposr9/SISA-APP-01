@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, time
 
 from acta_app import config
-from acta_app.models import Acta, ActividadChecklist, Articulo, EncuestaSatisfaccion
+from acta_app.models import Acta, ActividadChecklist, Articulo, EncuestaSatisfaccion, EnvioEncuesta
 
 FORMATO_FECHA = "dd/mm/yyyy"
 FORMATO_FECHA_HORA = "dd/mm/yyyy hh:mm:ss"  # 24 horas
@@ -84,22 +84,47 @@ class BloqueFijo:
     formatos: tuple[str | None, ...] = ()
 
 
-def _encuesta(acta: Acta) -> tuple | None:
-    e = acta.encuesta
-    if e is None:
-        return None
-    return (*(e.puntajes.get(a) for a in config.ASPECTOS_ENCUESTA), e.nota, e.comentario or None, e.fecha)
-
-
 COLUMNA_NOTA_ENCUESTA = f"Calificación final (/{config.NOTA_MAXIMA_ENCUESTA})"
 COLUMNA_COMENTARIO_ENCUESTA = "Comentarios y sugerencias"
 COLUMNA_FECHA_ENCUESTA = "Fecha de la encuesta"
+COLUMNAS_RESPUESTA_ENCUESTA = (
+    *config.ASPECTOS_ENCUESTA, COLUMNA_NOTA_ENCUESTA, COLUMNA_COMENTARIO_ENCUESTA, COLUMNA_FECHA_ENCUESTA,
+)
+# Envío de la invitación por correo (el código del enlace solo se guarda como hash).
+COLUMNA_ENVIADA_A = "Encuesta enviada a"
+COLUMNA_ENVIADA_EL = "Encuesta enviada el"
+COLUMNA_VENCE_EL = "Encuesta vence el"
+COLUMNA_CLAVE_HASH = "Código de acceso (hash)"
+COLUMNAS_ENVIO_ENCUESTA = (COLUMNA_ENVIADA_A, COLUMNA_ENVIADA_EL, COLUMNA_VENCE_EL, COLUMNA_CLAVE_HASH)
+COLUMNAS_FECHA_ENCUESTA = (COLUMNA_FECHA_ENCUESTA, COLUMNA_ENVIADA_EL, COLUMNA_VENCE_EL)
+
+
+def _respuesta(acta: Acta) -> tuple:
+    e = acta.encuesta
+    if e is None:
+        return (None,) * len(COLUMNAS_RESPUESTA_ENCUESTA)
+    return (*(e.puntajes.get(a) for a in config.ASPECTOS_ENCUESTA), e.nota, e.comentario or None, e.fecha)
+
+
+def _envio(acta: Acta) -> tuple:
+    v = acta.envio_encuesta
+    if v is None:
+        return (None,) * len(COLUMNAS_ENVIO_ENCUESTA)
+    return (v.correo, v.enviada, v.vence, v.clave_hash)
+
+
+def _encuesta(acta: Acta) -> tuple | None:
+    if acta.encuesta is None and acta.envio_encuesta is None:
+        return None
+    return (*_respuesta(acta), *_envio(acta))
+
+
 BLOQUE_ENCUESTA = BloqueFijo(
     "Encuesta de satisfacción del servicio",
-    (*config.ASPECTOS_ENCUESTA, COLUMNA_NOTA_ENCUESTA, COLUMNA_COMENTARIO_ENCUESTA, COLUMNA_FECHA_ENCUESTA),
+    (*COLUMNAS_RESPUESTA_ENCUESTA, *COLUMNAS_ENVIO_ENCUESTA),
     _encuesta,
-    anchos=(*[18] * len(config.ASPECTOS_ENCUESTA), 16, 40, 20),
-    formatos=(*[None] * len(config.ASPECTOS_ENCUESTA), "0.0", None, None),
+    anchos=(*[18] * len(config.ASPECTOS_ENCUESTA), 16, 40, 20, 30, 20, 20, 24),
+    formatos=(*[None] * len(config.ASPECTOS_ENCUESTA), "0.0", None, None, None, None, None, None),
 )
 
 
@@ -132,6 +157,7 @@ ESQUEMA: list[Campo | Grupo] = [
     ),
     Grupo("Observaciones y/o Recomendaciones", "Observación", _textos(lambda a: a.observaciones)),
     Campo("Nombre Cliente", lambda a: a.nombre_cliente, ancho=24),
+    Campo("Correo del cliente", lambda a: a.correo_cliente, ancho=30),
     Campo("Firma Cliente", lambda a: "Firmado" if a.firma_cliente_png else "Pendiente", ancho=12),
     Campo("Nombre Representante Sistemas Analíticos", lambda a: a.nombre_representante, ancho=26),
     Campo(
@@ -203,6 +229,14 @@ def encuesta_desde_registro(registro: Registro) -> EncuestaSatisfaccion | None:
     )
 
 
+def envio_desde_registro(registro: Registro) -> EnvioEncuesta | None:
+    v = registro.valores
+    correo, enviada, vence, clave_hash = (v.get(c) for c in COLUMNAS_ENVIO_ENCUESTA)
+    if not (correo and isinstance(enviada, datetime) and isinstance(vence, datetime) and clave_hash):
+        return None
+    return EnvioEncuesta(str(correo).strip(), enviada, vence, str(clave_hash).strip())
+
+
 def tiene_encuesta(registro: Registro) -> bool:
     return any(registro.valores.get(a) not in (None, "") for a in config.ASPECTOS_ENCUESTA)
 
@@ -255,6 +289,8 @@ def acta_desde_registro(registro: Registro) -> Acta:
         ],
         observaciones=lista("Observaciones y/o Recomendaciones"),
         nombre_cliente=texto("Nombre Cliente"),
+        correo_cliente=texto("Correo del cliente"),
+        envio_encuesta=envio_desde_registro(registro),
         nombre_representante=texto("Nombre Representante Sistemas Analíticos"),
         fecha_registro=v.get("Fecha de registro") if isinstance(v.get("Fecha de registro"), datetime) else None,
         revision=int(v.get("Revisión") or 0),
@@ -304,7 +340,7 @@ class Columna:
     def formato(self) -> str | None:
         if isinstance(self.bloque, BloqueFijo):
             formatos = self.bloque.formatos
-            if self.encabezado == COLUMNA_FECHA_ENCUESTA:
+            if self.encabezado in COLUMNAS_FECHA_ENCUESTA:
                 return FORMATO_FECHA_HORA
             return formatos[self.subcampo] if self.subcampo < len(formatos) else None
         return self.bloque.formato if isinstance(self.bloque, Campo) else None

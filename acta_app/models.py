@@ -75,6 +75,19 @@ class EncuestaSatisfaccion:
 
 
 @dataclass
+class EnvioEncuesta:
+    """Invitación a la encuesta enviada al correo del cliente (enlace de un solo uso)."""
+
+    correo: str
+    enviada: datetime
+    vence: datetime
+    clave_hash: str  # SHA-256 del código del enlace; el código en sí no se guarda
+
+    def vigente(self, momento: datetime | None = None) -> bool:
+        return (momento or ahora()) <= self.vence
+
+
+@dataclass
 class Acta:
     numero: str = ""
     fecha: date | None = None
@@ -104,6 +117,9 @@ class Acta:
     observaciones: list[str] = field(default_factory=list)
 
     nombre_cliente: str = ""
+    correo_cliente: str = ""  # a donde se envía la encuesta de satisfacción
+    # Solo para validar que el correo se escribió igual dos veces (no se guarda).
+    correo_cliente_confirmacion: str = field(default="", compare=False, repr=False)
     firma_cliente_png: bytes | None = None
     nombre_representante: str = ""
     firma_representante_png: bytes | None = None
@@ -119,6 +135,7 @@ class Acta:
 
     # Encuesta de satisfacción (se responde después de guardar el acta).
     encuesta: EncuestaSatisfaccion | None = None
+    envio_encuesta: EnvioEncuesta | None = None
 
     # ---------- Valores derivados, en el mismo formato que el prototipo ----------
     @property

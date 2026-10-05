@@ -9,6 +9,7 @@ from acta_app.storage import (
     ActaDuplicadaError,
     ActaNoEncontradaError,
     AlmacenamientoError,
+    EncuestaYaRespondidaError,
     configuracion_sharepoint,
     fila_plana,
     formatear_valor,
@@ -17,7 +18,13 @@ from acta_app.storage import (
     usa_sharepoint,
 )
 from acta_app.ui.components import encabezado, etiqueta, seccion
-from acta_app.ui.encuesta import abrir_encuesta, numero_en_la_direccion, pagina_encuesta
+from acta_app.encuesta_correo import enviar_invitacion, errores_correo, normalizar_correo
+from acta_app.ui.encuesta import (
+    abrir_encuesta,
+    codigo_en_la_direccion,
+    numero_en_la_direccion,
+    pagina_encuesta,
+)
 from acta_app.ui.form import (
     acta_en_correccion,
     cargar_en_formulario,
@@ -89,11 +96,21 @@ def exigir_inicio_de_sesion() -> None:
     st.stop()
 
 
+# Enlace de la encuesta enviado al cliente (?encuesta=<N.°>&t=<código>): se abre sin iniciar
+# sesión, solo la encuesta, y solo si el código es el de la invitación vigente de esa acta.
+if (numero_encuesta := numero_en_la_direccion()) and (codigo_encuesta := codigo_en_la_direccion()):
+    pagina_encuesta(numero_encuesta, codigo_encuesta)
+    st.stop()
+
 exigir_inicio_de_sesion()
 
-# Página de la encuesta de satisfacción (?encuesta=<N.° de acta>): solo la encuesta.
+# Sin código (?encuesta=<N.°>): solo para pruebas de los desarrolladores.
 if numero_encuesta := numero_en_la_direccion():
-    pagina_encuesta(numero_encuesta)
+    if es_desarrollador():
+        pagina_encuesta(numero_encuesta)
+    else:
+        encabezado()
+        st.error("La encuesta se abre con el enlace enviado al correo del cliente.", icon="❌")
     st.stop()
 
 
@@ -108,7 +125,8 @@ def dialogo_fila(acta: Acta) -> None:
 
 
 @st.dialog("Acta guardada correctamente")
-def dialogo_guardado(acta: Acta, pdf: bytes, nombre_pdf: str, total_actas: int, enlace_pdf: str = "") -> None:
+def dialogo_guardado(acta: Acta, pdf: bytes, nombre_pdf: str, total_actas: int, enlace_pdf: str = "",
+                     envio: tuple[bool, str] | None = None) -> None:
     st.write(
         f"El acta N.° {acta.numero} se agregó como una nueva fila al Excel maestro "
         f"({total_actas} {'acta registrada' if total_actas == 1 else 'actas registradas'} en total) "
@@ -126,8 +144,11 @@ def dialogo_guardado(acta: Acta, pdf: bytes, nombre_pdf: str, total_actas: int, 
     )
     if enlace_pdf.startswith("http"):
         st.link_button("Abrir el PDF en SharePoint", enlace_pdf, width="stretch")
-    if st.button("Abrir encuesta de satisfacción al cliente", on_click=abrir_encuesta,
-                 args=(acta.numero,), width="stretch"):
+    if envio is not None:
+        enviado, mensaje = envio
+        (st.success if enviado else st.error)(mensaje, icon="📧" if enviado else "❌")
+    if es_desarrollador() and st.button("Abrir encuesta de satisfacción (prueba)", on_click=abrir_encuesta,
+                                        args=(acta.numero,), width="stretch"):
         st.rerun()
     # La limpieza va en el callback (antes de dibujar) y st.rerun() recarga toda la página,
     # no solo la ventana.
@@ -271,6 +292,30 @@ def seccion_base_de_datos() -> None:
         )
 
 
+def reenviar_encuesta() -> None:
+    """Corrige el correo de la encuesta de un acta: envía un enlace nuevo y anula el anterior."""
+    try:
+        numeros = obtener_repositorio().numeros()
+    except AlmacenamientoError as exc:
+        st.error(str(exc), icon="❌")
+        return
+    numero = st.selectbox("Acta", numeros, index=None, placeholder="N.° de acta", key="reenvio_numero")
+    correo = st.text_input("Nuevo correo del cliente", key="reenvio_correo")
+    confirmacion = st.text_input("Confirma el correo", key="reenvio_conf")
+    if st.button("Enviar encuesta", type="primary", key="reenvio_enviar"):
+        errores = errores_correo(correo, confirmacion) or ([] if correo else ["Escribe el correo del cliente"])
+        if not numero or errores:
+            st.warning("Elige el acta. " * (not numero) + " ".join(errores), icon="⚠️")
+            return
+        try:
+            acta = obtener_repositorio().obtener(numero)
+        except (AlmacenamientoError, ActaNoEncontradaError) as exc:
+            st.error(str(exc), icon="❌")
+            return
+        enviado, mensaje = enviar_encuesta(acta, normalizar_correo(correo))
+        (st.success if enviado else st.error)(mensaje, icon="📧" if enviado else "❌")
+
+
 def mostrar_repuestos() -> None:
     """Lo que la app entendió de Repuestos.xlsx, para verificarlo."""
     try:
@@ -383,6 +428,8 @@ def seccion_conexion() -> None:
         if c2.button("Actualizar catálogo de equipos", width="stretch"):
             refrescar_catalogo()
             st.success("Se volverá a leer Equipos.xlsx de SharePoint.", icon="✅")
+        with st.popover("Reenviar encuesta a otro correo", width="stretch"):
+            reenviar_encuesta()
         if st.button("Ver repuestos detectados (Repuestos.xlsx)", width="stretch"):
             mostrar_repuestos()
         if st.button("Ver protocolos de mantenimiento preventivo detectados", width="stretch"):
@@ -446,6 +493,28 @@ def anotar_si_es_equipo_nuevo(acta: Acta) -> None:
         st.warning(f"El acta se guardó, pero no se pudo anotar el equipo nuevo: {exc}", icon="⚠️")
 
 
+def configuracion_correo() -> tuple[str, str]:
+    """(buzón remitente, dirección pública de la app); se pueden cambiar en [correo]."""
+    try:
+        cfg = st.secrets.get("correo", {})
+    except Exception:  # sin archivo de Secrets
+        cfg = {}
+    return cfg.get("remitente", config.CORREO_REMITENTE), cfg.get("url_app", config.URL_APP)
+
+
+def enviar_encuesta(acta: Acta, correo: str) -> tuple[bool, str]:
+    """Envía la invitación a la encuesta. Devuelve (enviado, mensaje para mostrar)."""
+    remitente, url_app = configuracion_correo()
+    try:
+        envio = enviar_invitacion(obtener_repositorio(), acta, correo, remitente, url_app)
+    except EncuestaYaRespondidaError:
+        return False, f"La encuesta del acta N.° {acta.numero} ya fue respondida; no se envió de nuevo."
+    except (AlmacenamientoError, ActaNoEncontradaError) as exc:
+        return False, f"El acta se guardó, pero no se pudo enviar la encuesta a {correo}: {exc}"
+    return True, (f"Encuesta enviada a {envio.correo}. El enlace vence el "
+                  f"{envio.vence:%d/%m/%Y a las %H:%M}.")
+
+
 def guardar_acta_nueva(acta: Acta) -> None:
     repo = obtener_repositorio()
     try:
@@ -468,7 +537,8 @@ def guardar_acta_nueva(acta: Acta) -> None:
     else:
         banner.success(f"Acta N.° {acta.numero} guardada correctamente.", icon="✅")
         anotar_si_es_equipo_nuevo(acta)
-        dialogo_guardado(acta, pdf, nombre_pdf, resultado.total_actas, resultado.ubicacion_pdf)
+        envio = enviar_encuesta(acta, acta.correo_cliente) if acta.correo_cliente else None
+        dialogo_guardado(acta, pdf, nombre_pdf, resultado.total_actas, resultado.ubicacion_pdf, envio)
 
 
 def guardar_correccion(acta: Acta) -> None:

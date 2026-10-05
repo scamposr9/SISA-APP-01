@@ -6,6 +6,7 @@ import streamlit as st
 
 from acta_app import config
 from acta_app.catalogo import clave, limpiar
+from acta_app.encuesta_correo import errores_correo, normalizar_correo, sugerencia_correo
 from acta_app.models import Acta, ActividadChecklist, duracion, hoy, redondear_a_5_minutos
 from acta_app.ui.catalogo_ui import cargar_catalogo, cargar_ingenieros, cargar_protocolos, cargar_repuestos
 from acta_app.ui.components import (
@@ -66,6 +67,8 @@ def cargar_en_formulario(acta: Acta) -> None:
         "tipo_servicio": acta.tipo_servicio if acta.tipo_servicio in config.TIPOS_SERVICIO else None,
         "estado_final": acta.estado_final,
         "nombre_cliente": acta.nombre_cliente,
+        "correo_cliente": acta.correo_cliente,
+        "correo_cliente_conf": acta.correo_cliente,
         "nombre_representante": acta.nombre_representante or (None if cargar_ingenieros() else ""),
     }
     for nombre, valor in valores.items():
@@ -338,6 +341,15 @@ def formulario_acta() -> Acta:
             else:
                 acta.firma_cliente_png = firma_o_camara(k("firma_cliente"), "Cliente")
             acta.nombre_cliente = st.text_input(etiqueta("Nombre del cliente"), key=k("nombre_cliente")).strip()
+            acta.correo_cliente = normalizar_correo(st.text_input(
+                etiqueta("Correo del cliente (para la encuesta)", obligatorio=False),
+                key=k("correo_cliente"), placeholder="cliente@empresa.com",
+            ))
+            acta.correo_cliente_confirmacion = normalizar_correo(st.text_input(
+                etiqueta("Confirma el correo del cliente", obligatorio=False),
+                key=k("correo_cliente_conf"), placeholder="Escríbelo de nuevo",
+            ))
+            _aviso_correo(acta)
         with c2:
             if conservar:
                 acta.firma_representante_png = _firma_original(original.firma_representante_png, config.EMPRESA)
@@ -364,6 +376,21 @@ def _nombre_representante() -> str:
         key=k("nombre_representante"),
         placeholder="Escribe para buscar tu nombre…",
     ) or ""
+
+
+def _aviso_correo(acta: Acta) -> None:
+    """Revisión inmediata del correo: coincidencia, formato y dominios mal escritos."""
+    if not acta.correo_cliente:
+        st.caption("Si el cliente da su correo, al guardar el acta se le enviará la encuesta de satisfacción.")
+        return
+    sugerencia = sugerencia_correo(acta.correo_cliente)
+    if sugerencia:
+        st.warning(f"¿Quisiste decir **{sugerencia}**?", icon="⚠️")
+    errores = errores_correo(acta.correo_cliente, acta.correo_cliente_confirmacion)
+    if acta.correo_cliente_confirmacion and errores:
+        st.error(errores[0].replace("Correo del cliente (", "").rstrip(")").capitalize() + ".", icon="❌")
+    elif not errores:
+        st.success(f"Correo verificado: la encuesta se enviará a {acta.correo_cliente}", icon="✅")
 
 
 def _firma_original(png: bytes | None, rotulo: str) -> bytes | None:

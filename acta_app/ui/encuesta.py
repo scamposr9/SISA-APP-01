@@ -5,16 +5,23 @@ from __future__ import annotations
 import streamlit as st
 
 from acta_app import config
-from acta_app.models import EncuestaSatisfaccion
+from acta_app.encuesta_correo import hash_codigo
+from acta_app.models import EncuestaSatisfaccion, formatear_fecha
 from acta_app.storage import (
     ActaNoEncontradaError,
     AlmacenamientoError,
+    EnlaceEncuestaInvalidoError,
     EncuestaYaRespondidaError,
     obtener_repositorio,
 )
 from acta_app.ui.components import encabezado, seccion
 
 PARAMETRO = "encuesta"
+PARAMETRO_CODIGO = "t"
+MENSAJE_ENLACE_INVALIDO = (
+    "Este enlace no es válido o ya venció. Si necesita responder la encuesta, solicite a "
+    f"{config.EMPRESA} que se la envíe nuevamente."
+)
 _COLORES = {0: config.RED, len(config.ESCALA_ENCUESTA) - 1: "#1E8449"}
 _CARAS = {0: " 🙁", len(config.ESCALA_ENCUESTA) - 1: " 🙂"}
 MENSAJE_COMENTARIOS = (
@@ -32,6 +39,11 @@ def numero_en_la_direccion() -> str | None:
     return st.query_params.get(PARAMETRO) or None
 
 
+def codigo_en_la_direccion() -> str | None:
+    """Código del enlace enviado por correo (?t=…): abre la encuesta sin iniciar sesión."""
+    return st.query_params.get(PARAMETRO_CODIGO) or None
+
+
 def _clave(numero: str, nombre: str) -> str:
     return f"encuesta_{numero}_{nombre}"
 
@@ -44,8 +56,11 @@ def _encabezado_escala() -> str:
     return f'<div class="esc-escala">{celdas}</div>'
 
 
-def pagina_encuesta(numero: str) -> None:
-    """Muestra la encuesta del acta y, al terminar, solo el agradecimiento."""
+def pagina_encuesta(numero: str, codigo: str | None = None) -> None:
+    """Muestra la encuesta del acta y, al terminar, solo el agradecimiento.
+
+    Con `codigo` (enlace del correo, sin inicio de sesión) solo se abre si coincide con la
+    invitación vigente del acta: mismo código, sin vencer y sin responder."""
     encabezado()
     if st.session_state.get(_clave(numero, "terminada")):
         st.success("¡Gracias por responder la encuesta! Tus respuestas quedaron registradas.", icon="✅")
@@ -53,17 +68,27 @@ def pagina_encuesta(numero: str) -> None:
     try:
         acta = obtener_repositorio().obtener(numero)
     except ActaNoEncontradaError:
-        st.error(f"No se encontró el acta N.° {numero}.", icon="❌")
+        st.error(MENSAJE_ENLACE_INVALIDO if codigo else f"No se encontró el acta N.° {numero}.", icon="❌")
         return
     except AlmacenamientoError as exc:
         st.error(str(exc), icon="❌")
         return
+    # Primero el código: con un enlace inválido no se revela nada más del acta.
+    clave_hash = hash_codigo(codigo) if codigo else None
+    envio = acta.envio_encuesta
+    if clave_hash and (envio is None or envio.clave_hash != clave_hash):
+        st.error(MENSAJE_ENLACE_INVALIDO, icon="❌")
+        return
     if acta.encuesta is not None:
         st.info("La encuesta de esta acta ya fue respondida. ¡Gracias!", icon="ℹ️")
         return
+    if clave_hash and not envio.vigente():
+        st.error(MENSAJE_ENLACE_INVALIDO, icon="❌")
+        return
 
     st.markdown("### Encuesta de satisfacción del servicio")
-    datos = [f"N.° de acta {acta.numero}", acta.nombre_representante, acta.equipo, acta.tipo_servicio_texto]
+    datos = [f"N.° de acta {acta.numero}", acta.nombre_cliente, acta.equipo, acta.tipo_servicio_texto,
+             formatear_fecha(acta.fecha), f"Atendido por {acta.nombre_representante}" if acta.nombre_representante else ""]
     st.caption(" · ".join(d for d in datos if d))
 
     puntajes: dict[str, int | None] = {}
@@ -103,7 +128,10 @@ def pagina_encuesta(numero: str) -> None:
         encuesta = EncuestaSatisfaccion(puntajes={a: int(p) for a, p in puntajes.items()},
                                         comentario=comentario.strip())
         try:
-            obtener_repositorio().guardar_encuesta(numero, encuesta)
+            obtener_repositorio().guardar_encuesta(numero, encuesta, clave_hash)
+        except EnlaceEncuestaInvalidoError:
+            st.error(MENSAJE_ENLACE_INVALIDO, icon="❌")
+            return
         except EncuestaYaRespondidaError:
             st.info("La encuesta de esta acta ya fue respondida. ¡Gracias!", icon="ℹ️")
             return
