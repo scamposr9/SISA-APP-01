@@ -111,6 +111,18 @@ client_secret = "<VALOR del client secret (no su ID)>"
 Sin la sección `[sharepoint]`, todo se guarda en el disco del servidor, que en Streamlit
 Community Cloud se borra al reiniciar: descarga "Excel + PDFs (ZIP)".
 
+### Vista de desarrolladores
+
+Con el inicio de sesión activo, las secciones «Base de datos de actas» y «Conexión con
+SharePoint» solo se muestran a los correos listados en los Secrets:
+
+```toml
+[app]
+desarrolladores = ["correo1@sistemasanaliticos.com", "correo2@sistemasanaliticos.com"]
+```
+
+Los demás usuarios ven solo el formulario. Sin inicio de sesión, las secciones se ven siempre.
+
 ### Inicio de sesión con Microsoft (opcional)
 
 Con una sección `[auth]` en los Secrets, la app pide iniciar sesión con Microsoft y solo deja

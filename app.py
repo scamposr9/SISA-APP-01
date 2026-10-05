@@ -45,6 +45,21 @@ def correo_usuario() -> str:
     return str(st.user.get("email") or st.user.get("preferred_username") or "").strip().lower()
 
 
+def es_desarrollador() -> bool:
+    """¿Ve las secciones de administración (base de datos y conexión con SharePoint)?
+
+    Con inicio de sesión activo, solo los correos de `desarrolladores` en la sección [app]
+    de los Secrets. Sin inicio de sesión (p. ej. en una computadora de pruebas), todos."""
+    try:
+        if "auth" not in st.secrets:
+            return True
+        lista = st.secrets.get("app", {}).get("desarrolladores", [])
+    except Exception:  # sin archivo de Secrets
+        return True
+    correo = correo_usuario()
+    return bool(correo) and correo in {str(c).strip().lower() for c in lista}
+
+
 def correo_permitido(correo: str) -> bool:
     return correo.endswith("@" + config.DOMINIO_PERMITIDO.lower())
 
@@ -486,8 +501,9 @@ if acta is not None and guardar:
     else:
         guardar_acta_nueva(acta)
 
-seccion_base_de_datos()
-seccion_conexion()
+if es_desarrollador():
+    seccion_base_de_datos()
+    seccion_conexion()
 usuario = ""
 try:
     if "auth" in st.secrets and st.user.is_logged_in:
