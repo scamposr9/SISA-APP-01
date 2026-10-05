@@ -97,7 +97,8 @@ def cuerpo_html(acta: Acta, enlace: str, envio: EnvioEncuesta) -> str:
   <p style="color:#555;font-size:12px">El enlace es personal, se puede usar una sola vez y vence el
   {envio.vence:%d/%m/%Y a las %H:%M} (hora de Perú). Si usted no recibió este servicio, ignore este
   correo.</p>
-  <p style="color:#555;font-size:12px">{e(config.EMPRESA)} · {e(config.SITIO_WEB)}</p>
+  <p style="color:#555;font-size:12px">Este es un mensaje automático; por favor no responda a este
+  correo.<br>{e(config.EMPRESA)} · {e(config.SITIO_WEB)}</p>
 </div>"""
 
 
