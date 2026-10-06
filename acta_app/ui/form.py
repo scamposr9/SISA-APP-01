@@ -9,6 +9,8 @@ from acta_app.borrador import Borrador
 from acta_app.catalogo import clave, limpiar
 from acta_app.models import Acta, ActividadChecklist, duracion, hoy, redondear_a_5_minutos
 from acta_app.ui.catalogo_ui import cargar_catalogo, cargar_ingenieros, cargar_protocolos, cargar_repuestos
+from acta_app.ui.preinstalacion import precargar as precargar_preinstalacion
+from acta_app.ui.preinstalacion import secciones as secciones_preinstalacion
 from acta_app.ui.components import (
     etiqueta,
     firma_o_camara,
@@ -65,6 +67,8 @@ def cargar_borrador(borrador: Borrador) -> None:
     limpiar_formulario()
     _precargar(borrador.acta)
     st.session_state[k("chk_quitadas")] = list(borrador.quitadas)
+    if borrador.preinstalacion is not None:
+        precargar_preinstalacion(borrador.preinstalacion)
 
 
 def actividades_quitadas() -> list[str]:
@@ -297,6 +301,11 @@ def formulario_acta() -> Acta:
             on_change=_al_cambiar_tipo,
             label_visibility="collapsed",
         )
+
+    # Presite: en lugar de los apartados del acta, los del reporte de preinstalación.
+    if acta.tipo_servicio == config.TIPO_SERVICIO_PRESITE and original is None:
+        acta.preinstalacion = secciones_preinstalacion()
+        return acta
 
     # ---------- Antecedentes ----------
     with seccion("antecedentes", "Antecedentes iniciales"):

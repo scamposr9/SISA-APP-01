@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 
 # Versión visible al pie de la app. Además se muestra el commit de GitHub desplegado
 # (ver version_desplegada), que cambia solo con cada actualización.
-APP_VERSION = "0.28.0"
+APP_VERSION = "0.29.0"
 
 # El servidor (p. ej. Streamlit Cloud) corre en UTC; fechas y horas se toman en hora de Perú.
 ZONA_HORARIA = ZoneInfo("America/Lima")
@@ -70,9 +70,10 @@ SITIO_WEB = "sistemasanaliticos.com"
 
 # ---------- Opciones exclusivas ----------
 TIPO_SERVICIO_PREVENTIVO = "Mant. Preventivo"
+TIPO_SERVICIO_PRESITE = "Presite"  # muestra el formato de preinstalación
 TIPO_SERVICIO_CORRECTIVO = "Mant. Correctivo"
 TIPOS_SERVICIO = [
-    TIPO_SERVICIO_PREVENTIVO, TIPO_SERVICIO_CORRECTIVO, "Presite", "Instalación", "Actualización",
+    TIPO_SERVICIO_PREVENTIVO, TIPO_SERVICIO_CORRECTIVO, TIPO_SERVICIO_PRESITE, "Instalación", "Actualización",
 ]
 # Solo para leer actas anteriores, guardadas como «Otro: <texto>».
 TIPO_SERVICIO_OTRO = "Otro"

@@ -11,7 +11,9 @@ import json
 from dataclasses import dataclass, field
 from datetime import date, datetime, time
 
+from acta_app import preinstalacion as pre
 from acta_app.models import Acta, ActividadChecklist, Articulo, ahora
+from acta_app.preinstalacion import Preinstalacion
 
 VERSION = 1
 
@@ -22,6 +24,7 @@ class Borrador:
     guardado: datetime
     # Actividades del checklist que el ingeniero quitó con × (protocolos repetidos).
     quitadas: list[str] = field(default_factory=list)
+    preinstalacion: Preinstalacion | None = None  # apartados de Presite, si se eligió
 
     @property
     def tiene_datos(self) -> bool:
@@ -76,6 +79,7 @@ def _datos(acta: Acta, quitadas: list[str] | None) -> dict:
         "nombre_cliente": acta.nombre_cliente,
         "nombre_representante": acta.nombre_representante,
         "quitadas": list(quitadas or []),
+        "preinstalacion": pre.a_dict(acta.preinstalacion) if acta.preinstalacion is not None else None,
     }
 
 
@@ -108,6 +112,7 @@ def desde_json(contenido: bytes) -> Borrador | None:
             nombre_cliente=d.get("nombre_cliente") or "",
             nombre_representante=d.get("nombre_representante") or "",
         )
-        return Borrador(acta, datetime.fromisoformat(d["guardado"]), list(d.get("quitadas") or []))
+        presite = pre.desde_dict(d["preinstalacion"]) if d.get("preinstalacion") else None
+        return Borrador(acta, datetime.fromisoformat(d["guardado"]), list(d.get("quitadas") or []), presite)
     except (ValueError, KeyError, TypeError):
         return None

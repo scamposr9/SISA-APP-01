@@ -4,7 +4,10 @@ import streamlit as st
 
 from acta_app import config
 from acta_app.borrador import Borrador, a_json, desde_json, huella, tiene_datos
+from acta_app import preinstalacion
 from acta_app.models import Acta, ahora
+from acta_app.pdf.preinstalacion import generar_pdf as generar_pdf_preinstalacion
+from acta_app.preinstalacion import Preinstalacion
 from acta_app.pdf import generar_pdf, nombre_archivo_pdf
 from acta_app.storage import (
     ActaDuplicadaError,
@@ -41,7 +44,6 @@ from acta_app.equipos_nuevos import es_equipo_nuevo
 from acta_app.protocolos import Protocolos
 from acta_app.repuestos import Repuestos
 from acta_app.ui.catalogo_ui import cargar_catalogo, refrescar_catalogo
-from acta_app.ui.preinstalacion import pagina as pagina_preinstalacion
 from acta_app.ui.styles import aplicar_estilos
 from acta_app.validation import validar_acta
 
@@ -140,12 +142,24 @@ if numero_encuesta := numero_en_la_direccion():
     st.stop()
 
 
+def preinstalacion_de_acta(acta: Acta) -> Preinstalacion:
+    """Reporte de preinstalación con los datos generales del acta y sus apartados propios."""
+    p = acta.preinstalacion
+    p.numero, p.fecha, p.cliente, p.ubicacion = acta.numero, acta.fecha, acta.cliente, acta.ubicacion
+    p.equipo, p.marca, p.modelo, p.numero_serie = acta.equipo, acta.marca, acta.modelo, acta.numero_serie
+    return p
+
+
 @st.dialog("Vista previa de la fila (Excel)", width="large")
 def dialogo_fila(acta: Acta) -> None:
     # Mismas columnas que tendrá la fila en el Excel maestro (un ítem por columna).
-    registro = registro_desde_acta(acta)
-    registro.valores["PDF original"] = "(se asigna al guardar)"
-    fila = fila_plana(registro)
+    if acta.preinstalacion is not None:
+        st.caption(f"Fila de {config.SHAREPOINT_PREINSTALACIONES}")
+        fila = preinstalacion.fila(preinstalacion_de_acta(acta), "(se asigna al guardar)")
+    else:
+        registro = registro_desde_acta(acta)
+        registro.valores["PDF original"] = "(se asigna al guardar)"
+        fila = fila_plana(registro)
     texto = "\n".join(f"{k}: {formatear_valor(v) or '—'}" for k, v in fila.items())
     st.code(texto, language=None, wrap_lines=True)
 
@@ -219,7 +233,7 @@ def dialogo_guardado(acta: Acta, pdf: bytes, nombre_pdf: str, total_actas: int, 
         st.rerun()
 
 
-MODO_NUEVA, MODO_PREINSTALACION, MODO_CORREGIR = "Nueva acta", "Preinstalación", "Corregir un acta"
+MODO_NUEVA, MODO_CORREGIR = "Nueva acta", "Corregir un acta"
 
 
 def volver_a_nueva_acta() -> None:
@@ -500,30 +514,26 @@ def seccion_conexion() -> None:
             mostrar_protocolos()
 
 
-# El membrete cambia con el formato elegido (el modo se elige más abajo; se usa el último).
-encabezado(["Reporte de Preinstalación"] if st.session_state.get("modo") == MODO_PREINSTALACION else None)
+# Con «Presite» elegido (acta nueva), el membrete es el del reporte de preinstalación.
+es_presite = (st.session_state.get("modo", MODO_NUEVA) == MODO_NUEVA
+              and st.session_state.get(k("tipo_servicio")) == config.TIPO_SERVICIO_PRESITE)
+encabezado(["Reporte de Preinstalación"] if es_presite else None)
 st.markdown(
     '<div class="required-note"><span class="req-star">*</span> Campo obligatorio</div>',
     unsafe_allow_html=True,
 )
-def _al_cambiar_modo() -> None:
-    """Entrar o salir de «Corregir un acta» deja el formulario del acta en blanco; pasar de
-    «Nueva acta» a «Preinstalación» y volver conserva lo escrito en cada uno."""
-    anterior = st.session_state.get("modo_anterior", MODO_NUEVA)
-    if MODO_CORREGIR in (anterior, st.session_state.get("modo")):
-        salir_de_correccion()
-    st.session_state["modo_anterior"] = st.session_state.get("modo")
-
-
-modo = st.segmented_control(
-    "Modo",
-    [MODO_NUEVA, MODO_PREINSTALACION, *([MODO_CORREGIR] if puede_corregir() else [])],
-    default=MODO_NUEVA,
-    required=True,
-    key="modo",
-    on_change=_al_cambiar_modo,
-    label_visibility="collapsed",
-)
+if puede_corregir():
+    modo = st.segmented_control(
+        "Modo",
+        [MODO_NUEVA, MODO_CORREGIR],
+        default=MODO_NUEVA,
+        required=True,
+        key="modo",
+        on_change=salir_de_correccion,
+        label_visibility="collapsed",
+    )
+else:
+    modo = MODO_NUEVA
 banner = st.empty()
 
 
@@ -620,10 +630,7 @@ if modo == MODO_NUEVA:
     ofrecer_borrador()
 
 original = selector_correccion() if modo == MODO_CORREGIR else None
-if modo == MODO_PREINSTALACION:
-    acta = None
-    pagina_preinstalacion(usuario_borrador() if usuario_borrador() != "local" else "")
-elif modo == MODO_CORREGIR and original is None:
+if modo == MODO_CORREGIR and original is None:
     acta = None
 else:
     acta = formulario_acta()
@@ -633,7 +640,8 @@ else:
         anotar_borrador(acta)
     col_ver, col_guardar = st.columns(2)
     ver_fila = col_ver.button("Ver fila de datos", key="btn_ver_fila", width="stretch")
-    texto_guardar = "Guardar corrección" if original is not None else "Guardar acta"
+    texto_guardar = ("Guardar corrección" if original is not None
+                     else "Guardar preinstalación" if acta.preinstalacion is not None else "Guardar acta")
     guardar = col_guardar.button(texto_guardar, key="btn_guardar", width="stretch")
     if original is None:
         autoguardado()
@@ -665,6 +673,44 @@ def anotar_si_es_equipo_nuevo(acta: Acta) -> None:
             )
     except AlmacenamientoError as exc:
         st.warning(f"El acta se guardó, pero no se pudo anotar el equipo nuevo: {exc}", icon="⚠️")
+
+
+@st.dialog("Reporte de preinstalación guardado")
+def dialogo_preinstalacion(p: Preinstalacion, pdf: bytes, nombre_pdf: str, total: int, enlace_pdf: str) -> None:
+    st.write(
+        f"El reporte de preinstalación N.° {p.numero} se agregó a {config.SHAREPOINT_PREINSTALACIONES} "
+        f"({total} {'reporte registrado' if total == 1 else 'reportes registrados'} en total) y se generó su PDF."
+    )
+    st.download_button("Descargar PDF", data=pdf, file_name=nombre_pdf, mime="application/pdf",
+                       on_click="ignore", type="primary", width="stretch")
+    if enlace_pdf.startswith("http"):
+        st.link_button("Abrir el PDF en SharePoint", enlace_pdf, width="stretch")
+    if st.button("Registrar una nueva acta", on_click=limpiar_formulario, width="stretch"):
+        st.rerun()
+
+
+def guardar_preinstalacion(acta: Acta) -> None:
+    p = preinstalacion_de_acta(acta)
+    errores = preinstalacion.validar(p)
+    if errores:
+        aviso("warning", "Falta completar: " + ", ".join(errores))
+        return
+    try:
+        registrado_por = correo_usuario() if "auth" in st.secrets and st.user.is_logged_in else ""
+    except Exception:  # sin archivo de Secrets
+        registrado_por = ""
+    p.fecha_registro, p.registrado_por = ahora(), registrado_por
+    pdf, nombre_pdf = generar_pdf_preinstalacion(p), preinstalacion.nombre_archivo_pdf(p)
+    try:
+        resultado = obtener_repositorio().guardar_preinstalacion(p, pdf, nombre_pdf)
+    except ActaDuplicadaError:
+        aviso("warning", f"Ya existe un reporte de preinstalación con el N.° {p.numero}. Usa otro número.")
+    except AlmacenamientoError as exc:
+        aviso("error", str(exc))
+    else:
+        banner.success(f"Reporte de preinstalación N.° {p.numero} guardado correctamente.", icon="✅")
+        borrar_borrador_guardado()
+        dialogo_preinstalacion(p, pdf, nombre_pdf, resultado.total_actas, resultado.ubicacion_pdf)
 
 
 def guardar_acta_nueva(acta: Acta) -> None:
@@ -711,7 +757,9 @@ def guardar_correccion(acta: Acta) -> None:
 if acta is not None and ver_fila:
     dialogo_fila(acta)
 
-if acta is not None and guardar:
+if acta is not None and guardar and acta.preinstalacion is not None:
+    guardar_preinstalacion(acta)
+elif acta is not None and guardar:
     errores = validar_acta(acta)
     if original is not None:
         errores += [e for e, v in (("Motivo de la corrección", acta.motivo_correccion),

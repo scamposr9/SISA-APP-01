@@ -133,6 +133,10 @@ class Acta:
     encuesta: EncuestaSatisfaccion | None = None
     acceso_encuesta: AccesoEncuesta | None = None
 
+    # Con tipo de servicio «Presite»: apartados del reporte de preinstalación (no se guardan
+    # en Actas.xlsx sino en Preinstalaciones.xlsx). Es un `preinstalacion.Preinstalacion`.
+    preinstalacion: object | None = field(default=None, compare=False, repr=False)
+
     # ---------- Valores derivados, en el mismo formato que el prototipo ----------
     @property
     def tipo_servicio_texto(self) -> str:

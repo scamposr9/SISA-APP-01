@@ -86,9 +86,11 @@ def _datos_generales(lz: _Lienzo, p: Preinstalacion) -> None:
             lz.texto(x + 2, base, etiqueta)
             lz.texto_ajustado(x + label_w + 2, base, valor or "—", box_w - label_w - 4, tamano=9.5)
 
-    recuadro(MARGIN_X, [("Cliente", p.cliente), ("Ubicación", p.ubicacion), ("Fecha", formatear_fecha(p.fecha))])
-    recuadro(MARGIN_X + box_w + gap, [("Equipo", p.equipo), ("Marca", p.marca), ("Modelo", p.modelo)])
-    lz.y += row_h * 3 + 9
+    recuadro(MARGIN_X, [("Cliente", p.cliente), ("Ubicación", p.ubicacion), ("Fecha", formatear_fecha(p.fecha)),
+                        ("Servicio", config.TIPO_SERVICIO_PRESITE)])
+    recuadro(MARGIN_X + box_w + gap, [("Equipo", p.equipo), ("Marca", p.marca), ("Modelo", p.modelo),
+                                      ("N.° Serie", p.numero_serie)])
+    lz.y += row_h * 4 + 9
 
 
 def _titulo(lz: _Lienzo, texto: str, espacio: float = 18) -> None:

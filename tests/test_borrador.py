@@ -52,3 +52,19 @@ def test_repositorio_local_guarda_lee_y_borra_borradores(tmp_path, acta_completa
     assert repo.leer_borrador("otro@x.com") is None  # un borrador por usuario
     repo.borrar_borrador("ana@x.com")
     assert repo.leer_borrador("ana@x.com") is None
+
+
+def test_borrador_con_preinstalacion(acta_completa):
+    from acta_app.preinstalacion import Contacto, Preinstalacion
+
+    acta_completa.tipo_servicio = "Presite"
+    acta_completa.preinstalacion = Preinstalacion(
+        punto_dedicado=True, tipos_toma=["Tipo 1", "Tipo 13"], traslado=["Estibadores"], estibadores=2,
+        accesos=["Puerta 2"], medidas={"Piso": {"Largo": 330.0, "Ancho": None, "Altura": None}},
+        contactos=[Contacto("Ana", "Jefa", "999")], realizado_por="Ing",
+    )
+    p = desde_json(a_json(acta_completa)).preinstalacion
+    assert (p.punto_dedicado, p.tipos_toma, p.estibadores, p.accesos) == (True, ["Tipo 1", "Tipo 13"], 2, ["Puerta 2"])
+    assert p.medida("Piso", "Largo") == 330.0
+    assert p.contactos == [Contacto("Ana", "Jefa", "999")]
+    assert desde_json(a_json(Acta(cliente="x"))).preinstalacion is None

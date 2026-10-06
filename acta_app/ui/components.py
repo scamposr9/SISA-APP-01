@@ -149,7 +149,7 @@ def lista_dinamica(clave: str, placeholder: str) -> list[str]:
         col_txt.text_area(
             f"Punto {numero}",
             key=f"{clave}_txt_{item_id}",
-            placeholder=placeholder,
+            placeholder=placeholder.format(n=numero) if "{n}" in placeholder else placeholder,
             height=68,
             label_visibility="collapsed",
         )

@@ -137,8 +137,9 @@ correctores = ["correo1@sistemasanaliticos.com", "ingeniero@sistemasanaliticos.c
 
 ### Reporte de preinstalación (Presite)
 
-En el modo «Preinstalación» se llena el reporte de preinstalación: condiciones eléctricas
-(punto dedicado y los 12 tipos de toma del formato en Word, con sus dibujos), traslado del equipo,
+Al elegir «Presite» como tipo de servicio en «Nueva acta», en lugar de los apartados del acta
+aparecen los del reporte de preinstalación (los datos generales son los mismos): condiciones
+eléctricas (punto dedicado y los 13 tipos de toma del formato en Word, con sus dibujos), traslado del equipo,
 accesos (3 filas de entrada, se pueden agregar más), tipo de área, medidas de la mesa de trabajo y
 del piso en cm, complementos faltantes, temperatura, varios contactos y observaciones. Se guarda en
 su propio Excel maestro, `Preinstalaciones.xlsx`, con su PDF en `PDF Preinstalaciones/` (misma
