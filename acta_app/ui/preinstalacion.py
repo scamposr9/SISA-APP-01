@@ -96,8 +96,10 @@ def secciones() -> Preinstalacion:
         st.markdown("**Traslado del equipo**")
         p.traslado = _marcar(pre.TRASLADOS, "traslado")
         if pre.TRASLADO_ESTIBADORES in p.traslado:
-            cantidad = st.number_input(etiqueta("¿Cuántos estibadores?"), min_value=1, step=1, value=None,
-                                       format="%d", key=k("estibadores"), placeholder="Número entero")
+            if st.session_state.get(k("estibadores")) is None:
+                st.session_state[k("estibadores")] = 1  # empieza en 1; se sube con + o se escribe
+            cantidad = st.number_input(etiqueta("¿Cuántos estibadores?"), min_value=1, step=1,
+                                       format="%d", key=k("estibadores"))
             p.estibadores = None if cantidad is None else int(cantidad)
             if p.estibadores is None:
                 st.caption(":red[Indica cuántos estibadores se necesitan para poder guardar.]")
