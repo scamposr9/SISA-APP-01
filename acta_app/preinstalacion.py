@@ -53,6 +53,13 @@ class Contacto:
     def esta_vacio(self) -> bool:
         return not (self.nombre or self.cargo or self.telefono)
 
+    @property
+    def faltantes(self) -> list[str]:
+        """Datos que faltan en un contacto empezado (los 3 son obligatorios)."""
+        if self.esta_vacio:
+            return []
+        return [n for n, v in (("nombre", self.nombre), ("cargo", self.cargo), ("teléfono", self.telefono)) if not v]
+
 
 @dataclass
 class Preinstalacion:
@@ -151,15 +158,16 @@ def validar(p: Preinstalacion) -> list[str]:
     elif TRASLADO_NO_REQUIERE in p.traslado and len(p.traslado) > 1:
         errores.append("Traslado del equipo («No requiere» no va con otras opciones)")
     if TRASLADO_ESTIBADORES in p.traslado and not p.estibadores:
-        errores.append("Cantidad de estibadores")
+        errores.append("Cantidad de estibadores (número entero)")
     if not p.accesos:
         errores.append("Accesos")
     if not p.servicios:
         errores.append("Tipo de área (servicio)")
     if not p.contactos_usados:
         errores.append("Personal de contacto")
-    elif any(not c.nombre or not c.telefono for c in p.contactos_usados):
-        errores.append("Personal de contacto (cada contacto necesita nombre y teléfono)")
+    for n, c in enumerate(p.contactos_usados, start=1):
+        if c.faltantes:
+            errores.append(f"Contacto {n}: {', '.join(c.faltantes)}")
     if not p.realizado_por:
         errores.append("Realizado por")
     return errores

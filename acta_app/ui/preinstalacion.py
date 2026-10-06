@@ -73,7 +73,10 @@ def _contactos() -> list[Contacto]:
         ]
         c_quitar.button("×", key=k(f"quitar_contacto_{item_id}"), help="Quitar contacto",
                         on_click=quitar, args=(item_id,))
-        contactos.append(Contacto(*(limpiar(v) for v in valores)))
+        contacto = Contacto(*(limpiar(v) for v in valores))
+        if contacto.faltantes:  # empezado pero incompleto: no se podrá guardar
+            st.caption(f":red[Completa {', '.join(contacto.faltantes)} de este contacto (o quítalo con ×).]")
+        contactos.append(contacto)
     st.button("+ Agregar contacto", key=k("agregar_contacto"), on_click=agregar)
     return contactos
 
@@ -94,8 +97,10 @@ def secciones() -> Preinstalacion:
         p.traslado = _marcar(pre.TRASLADOS, "traslado")
         if pre.TRASLADO_ESTIBADORES in p.traslado:
             cantidad = st.number_input(etiqueta("¿Cuántos estibadores?"), min_value=1, step=1, value=None,
-                                       key=k("estibadores"), placeholder="Cantidad")
+                                       format="%d", key=k("estibadores"), placeholder="Número entero")
             p.estibadores = None if cantidad is None else int(cantidad)
+            if p.estibadores is None:
+                st.caption(":red[Indica cuántos estibadores se necesitan para poder guardar.]")
         st.markdown("**Accesos**")
         if k("accesos_ids") not in st.session_state:
             precargar_lista(k("accesos"), [""] * pre.ACCESOS_INICIALES)
@@ -120,7 +125,8 @@ def secciones() -> Preinstalacion:
         p.temperatura = st.text_input("Temperatura del área (°C)", key=k("temperatura"),
                                       placeholder="Ej: 22 °C, o «No cuenta con termostato»").strip()
 
-    with seccion("pre_contactos", "Personal de contacto", nota="(puedes agregar varios)"):
+    with seccion("pre_contactos", "Personal de contacto",
+                 nota="(puedes agregar varios; cada uno con nombre, cargo y teléfono)"):
         p.contactos = _contactos()
 
     with seccion("pre_observaciones", "Observaciones", obligatorio=False):

@@ -31,7 +31,8 @@ def test_validaciones(reporte):
     reporte.contactos = [Contacto("Ana", "", "")]
     errores = pre.validar(reporte)
     assert "Traslado del equipo («No requiere» no va con otras opciones)" in errores
-    assert "Personal de contacto (cada contacto necesita nombre y teléfono)" in errores
+    assert "Contacto 1: cargo, teléfono" in errores
+    assert "Cantidad de estibadores (número entero)" not in errores  # no se marcó Estibadores
     assert "¿Es punto dedicado?" in pre.validar(Preinstalacion())
 
 
@@ -69,3 +70,15 @@ def test_sharepoint_rechaza_numero_repetido(reporte):
     assert repo.existe_preinstalacion("2026-P001")
     with pytest.raises(ActaDuplicadaError):
         repo.guardar_preinstalacion(reporte, b"%PDF", "Preinstalacion_2026-P001.pdf")
+
+
+def test_contacto_empezado_exige_los_3_datos(reporte):
+    reporte.contactos = [Contacto("Liliana", "Arquitecta", "993"), Contacto("", "Jefa", ""), Contacto()]
+    assert pre.validar(reporte) == ["Contacto 2: nombre, teléfono"]
+    reporte.contactos = [Contacto("Liliana", "", "993")]
+    assert pre.validar(reporte) == ["Contacto 1: cargo"]
+
+
+def test_estibadores_marcado_exige_cantidad(reporte):
+    reporte.estibadores = None
+    assert pre.validar(reporte) == ["Cantidad de estibadores (número entero)"]
