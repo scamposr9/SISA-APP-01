@@ -135,6 +135,16 @@ exista, para los de `desarrolladores`:
 correctores = ["correo1@sistemasanaliticos.com", "ingeniero@sistemasanaliticos.com"]
 ```
 
+### Reporte de preinstalación (Presite)
+
+En el modo «Preinstalación» se llena el reporte de preinstalación: condiciones eléctricas
+(punto dedicado y los 12 tipos de toma del formato en Word, con sus dibujos), traslado del equipo,
+accesos (3 filas de entrada, se pueden agregar más), tipo de área, medidas de la mesa de trabajo y
+del piso en cm, complementos faltantes, temperatura, varios contactos y observaciones. Se guarda en
+su propio Excel maestro, `Preinstalaciones.xlsx`, con su PDF en `PDF Preinstalaciones/` (misma
+carpeta de actas); `Actas.xlsx` no cambia. En el PDF solo salen las opciones marcadas (con X),
+salvo los complementos faltantes, que salen todos.
+
 ### Borrador automático
 
 Mientras se llena un acta nueva, la app guarda un borrador (sin firmas) cada ~20 segundos en

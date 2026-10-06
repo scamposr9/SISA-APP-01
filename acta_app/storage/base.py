@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Protocol
 
 import pandas as pd
 
+from acta_app.preinstalacion import Preinstalacion
 from acta_app.models import Acta, AccesoEncuesta, EncuestaSatisfaccion
 from acta_app.storage.esquema import (
     BLOQUE_ENCUESTA,
@@ -112,6 +113,17 @@ class RepositorioActas(Protocol):
 
     def leer_equipos_nuevos(self) -> bytes | None:
         """Equipos_nuevos.xlsx (equipos fuera del catálogo, por revisar), si existe."""
+        ...
+
+    def existe_preinstalacion(self, numero: str) -> bool: ...
+
+    def guardar_preinstalacion(self, p: Preinstalacion, pdf: bytes, nombre_pdf: str) -> ResultadoGuardado:
+        """Agrega el reporte de preinstalación a su Excel maestro y sube su PDF. Lanza
+        ActaDuplicadaError si el N.° ya existe."""
+        ...
+
+    def preinstalaciones_bytes(self) -> bytes | None:
+        """Contenido del Excel de preinstalaciones, para descargarlo desde la app."""
         ...
 
     def leer_borrador(self, usuario: str) -> bytes | None:

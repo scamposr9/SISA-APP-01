@@ -41,6 +41,7 @@ from acta_app.equipos_nuevos import es_equipo_nuevo
 from acta_app.protocolos import Protocolos
 from acta_app.repuestos import Repuestos
 from acta_app.ui.catalogo_ui import cargar_catalogo, refrescar_catalogo
+from acta_app.ui.preinstalacion import pagina as pagina_preinstalacion
 from acta_app.ui.styles import aplicar_estilos
 from acta_app.validation import validar_acta
 
@@ -218,7 +219,7 @@ def dialogo_guardado(acta: Acta, pdf: bytes, nombre_pdf: str, total_actas: int, 
         st.rerun()
 
 
-MODO_NUEVA, MODO_CORREGIR = "Nueva acta", "Corregir un acta"
+MODO_NUEVA, MODO_PREINSTALACION, MODO_CORREGIR = "Nueva acta", "Preinstalación", "Corregir un acta"
 
 
 def volver_a_nueva_acta() -> None:
@@ -338,6 +339,19 @@ def seccion_base_de_datos() -> None:
             on_click="ignore",
             width="stretch",
         )
+        try:
+            preinstalaciones = repo.preinstalaciones_bytes()
+        except AlmacenamientoError:
+            preinstalaciones = None
+        if preinstalaciones:
+            st.download_button(
+                "Descargar Excel de preinstalaciones",
+                data=preinstalaciones,
+                file_name=f"preinstalaciones_{ahora():%Y%m%d_%H%M}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                on_click="ignore",
+                width="stretch",
+            )
         if carpeta:
             return
         st.download_button(
@@ -486,23 +500,30 @@ def seccion_conexion() -> None:
             mostrar_protocolos()
 
 
-encabezado()
+# El membrete cambia con el formato elegido (el modo se elige más abajo; se usa el último).
+encabezado(["Reporte de Preinstalación"] if st.session_state.get("modo") == MODO_PREINSTALACION else None)
 st.markdown(
     '<div class="required-note"><span class="req-star">*</span> Campo obligatorio</div>',
     unsafe_allow_html=True,
 )
-if puede_corregir():
-    modo = st.segmented_control(
-        "Modo",
-        [MODO_NUEVA, MODO_CORREGIR],
-        default=MODO_NUEVA,
-        required=True,
-        key="modo",
-        on_change=salir_de_correccion,
-        label_visibility="collapsed",
-    )
-else:
-    modo = MODO_NUEVA
+def _al_cambiar_modo() -> None:
+    """Entrar o salir de «Corregir un acta» deja el formulario del acta en blanco; pasar de
+    «Nueva acta» a «Preinstalación» y volver conserva lo escrito en cada uno."""
+    anterior = st.session_state.get("modo_anterior", MODO_NUEVA)
+    if MODO_CORREGIR in (anterior, st.session_state.get("modo")):
+        salir_de_correccion()
+    st.session_state["modo_anterior"] = st.session_state.get("modo")
+
+
+modo = st.segmented_control(
+    "Modo",
+    [MODO_NUEVA, MODO_PREINSTALACION, *([MODO_CORREGIR] if puede_corregir() else [])],
+    default=MODO_NUEVA,
+    required=True,
+    key="modo",
+    on_change=_al_cambiar_modo,
+    label_visibility="collapsed",
+)
 banner = st.empty()
 
 
@@ -599,7 +620,10 @@ if modo == MODO_NUEVA:
     ofrecer_borrador()
 
 original = selector_correccion() if modo == MODO_CORREGIR else None
-if modo == MODO_CORREGIR and original is None:
+if modo == MODO_PREINSTALACION:
+    acta = None
+    pagina_preinstalacion(usuario_borrador() if usuario_borrador() != "local" else "")
+elif modo == MODO_CORREGIR and original is None:
     acta = None
 else:
     acta = formulario_acta()

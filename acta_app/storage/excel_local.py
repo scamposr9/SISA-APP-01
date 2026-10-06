@@ -12,8 +12,9 @@ from pathlib import Path
 import pandas as pd
 from openpyxl import Workbook, load_workbook
 
-from acta_app import config, equipos_nuevos, ingenieros
+from acta_app import config, equipos_nuevos, ingenieros, preinstalacion
 from acta_app.models import AccesoEncuesta, Acta, EncuestaSatisfaccion, ahora
+from acta_app.preinstalacion import Preinstalacion
 from acta_app.storage.base import (
     ActaDuplicadaError,
     ActaNoEncontradaError,
@@ -122,6 +123,29 @@ class RepositorioExcelLocal:
 
     def leer_equipos_nuevos(self) -> bytes | None:
         return self.ruta_equipos_nuevos.read_bytes() if self.ruta_equipos_nuevos.exists() else None
+
+    # ---------- Preinstalaciones ----------
+    @property
+    def ruta_preinstalaciones(self) -> Path:
+        return self.ruta_excel.parent / config.PREINSTALACIONES_PATH.name
+
+    def existe_preinstalacion(self, numero: str) -> bool:
+        return preinstalacion.existe(preinstalacion.leer_filas(self.preinstalaciones_bytes()), numero)
+
+    def preinstalaciones_bytes(self) -> bytes | None:
+        ruta = self.ruta_preinstalaciones
+        return ruta.read_bytes() if ruta.exists() else None
+
+    def guardar_preinstalacion(self, p: Preinstalacion, pdf: bytes, nombre_pdf: str) -> ResultadoGuardado:
+        with _LOCK:
+            if self.existe_preinstalacion(p.numero):
+                raise ActaDuplicadaError(p.numero)
+            carpeta_pdf = self.ruta_excel.parent / "pdfs_preinstalaciones"
+            carpeta_pdf.mkdir(parents=True, exist_ok=True)
+            (carpeta_pdf / nombre_pdf).write_bytes(pdf)
+            contenido, total = preinstalacion.agregar(self.preinstalaciones_bytes(), p, nombre_pdf, "")
+            self.ruta_preinstalaciones.write_bytes(contenido)
+            return ResultadoGuardado(total_actas=total, ubicacion_pdf=str(carpeta_pdf / nombre_pdf))
 
     # ---------- Borradores ----------
     def _ruta_borrador(self, usuario: str) -> Path:

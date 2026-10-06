@@ -7,6 +7,7 @@ Estructura en la carpeta configurada (por defecto «16. Analisis de Datos/Actas�
     PDF/              un PDF por acta y por revisión
     Firmas Actas/<N.°>/  cliente.png y representante.png de cada acta (para corregirla)
     Borradores/       acta a medio llenar de cada usuario (se borra al guardarla)
+    Preinstalaciones.xlsx y PDF Preinstalaciones/   reportes de preinstalación (Presite)
 
 `RepositorioSharePoint` solo necesita un `AlmacenArchivos` (leer/escribir archivos con
 control de versión). `AlmacenGraph` lo implementa con Microsoft Graph usando la
@@ -25,8 +26,9 @@ from urllib.parse import quote, unquote, urlparse
 import pandas as pd
 from openpyxl import load_workbook
 
-from acta_app import config, equipos_nuevos, ingenieros
+from acta_app import config, equipos_nuevos, ingenieros, preinstalacion
 from acta_app.models import AccesoEncuesta, Acta, EncuestaSatisfaccion, ahora
+from acta_app.preinstalacion import Preinstalacion
 from acta_app.storage.base import (
     ActaDuplicadaError,
     ActaNoEncontradaError,
@@ -107,6 +109,8 @@ class RepositorioSharePoint:
         self.ruta_pdf = f"{self.carpeta}/{carpeta_pdf}"
         self.ruta_firmas = f"{self.carpeta}/{CARPETA_FIRMAS}"
         self.ruta_borradores = f"{self.carpeta}/{config.SHAREPOINT_BORRADORES}"
+        self.ruta_preinstalaciones = f"{self.carpeta}/{config.SHAREPOINT_PREINSTALACIONES}"
+        self.ruta_pdf_preinstalaciones = f"{self.carpeta}/{config.SHAREPOINT_CARPETA_PDF_PREINSTALACIONES}"
         self.ruta_equipos = f"{self.carpeta}/{equipos}"
         self.ruta_equipos_nuevos = f"{self.carpeta}/{equipos_nuevos}"
         self.ruta_protocolos = f"{self.carpeta}/{protocolos}"
@@ -390,6 +394,36 @@ class RepositorioSharePoint:
             return False
         self._cache = None
         return True
+
+    # ---------- Preinstalaciones ----------
+    def existe_preinstalacion(self, numero: str) -> bool:
+        return preinstalacion.existe(preinstalacion.leer_filas(self.preinstalaciones_bytes()), numero)
+
+    def preinstalaciones_bytes(self) -> bytes | None:
+        archivo = self.almacen.leer(self.ruta_preinstalaciones)
+        return archivo.datos if archivo else None
+
+    def guardar_preinstalacion(self, p: Preinstalacion, pdf: bytes, nombre_pdf: str) -> ResultadoGuardado:
+        enlace_pdf = None
+        for _ in range(INTENTOS_POR_CONFLICTO):
+            archivo = self.almacen.leer(self.ruta_preinstalaciones)
+            if preinstalacion.existe(preinstalacion.leer_filas(archivo.datos if archivo else None), p.numero):
+                raise ActaDuplicadaError(p.numero)
+            if enlace_pdf is None:
+                enlace_pdf = self._subir(f"{self.ruta_pdf_preinstalaciones}/{nombre_pdf}", pdf)
+            contenido, total = preinstalacion.agregar(archivo.datos if archivo else None, p, nombre_pdf, enlace_pdf)
+            try:
+                self.almacen.escribir(
+                    self.ruta_preinstalaciones, contenido,
+                    version_esperada=archivo.version if archivo else None,
+                    solo_si_no_existe=archivo is None,
+                )
+                return ResultadoGuardado(total_actas=total, ubicacion_pdf=enlace_pdf)
+            except ConflictoDeVersion:
+                continue  # otra persona guardó a la vez: se vuelve a leer y se reintenta
+        raise AlmacenamientoError(
+            f"No se pudo actualizar {config.SHAREPOINT_PREINSTALACIONES} (está cambiando o abierto en edición)."
+        )
 
     # ---------- Borradores ----------
     def _ruta_borrador(self, usuario: str) -> str:

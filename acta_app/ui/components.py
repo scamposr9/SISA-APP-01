@@ -24,8 +24,14 @@ def _logo_base64() -> str:
     return base64.b64encode(config.LOGO_PATH.read_bytes()).decode()
 
 
-def encabezado() -> None:
+def encabezado(celdas: list[str] | None = None) -> None:
+    """Membrete del formato. `celdas` reemplaza la fila de código / nombre / edición
+    (p. ej. en el reporte de preinstalación); la fecha de hoy va siempre al final."""
     hoy_texto = hoy().strftime("%d/%m/%Y")
+    # Con celdas propias, una columna igual para cada una (el formato del acta usa el CSS).
+    estilo = "" if celdas is None else f' style="grid-template-columns: repeat({len(celdas) + 1}, 1fr)"'
+    celdas = celdas if celdas is not None else [config.CODIGO_FORMATO, config.NOMBRE_FORMATO, config.EDICION]
+    fila = "".join(f"<div>{c}</div>" for c in [*celdas, hoy_texto])
     st.markdown(
         f"""
         <div class="letterhead">
@@ -34,12 +40,7 @@ def encabezado() -> None:
           </div>
           <div>
             <div class="title-row1">{config.SISTEMA}</div>
-            <div class="title-row2">
-              <div>{config.CODIGO_FORMATO}</div>
-              <div>{config.NOMBRE_FORMATO}</div>
-              <div>{config.EDICION}</div>
-              <div>{hoy_texto}</div>
-            </div>
+            <div class="title-row2"{estilo}>{fila}</div>
           </div>
         </div>
         """,

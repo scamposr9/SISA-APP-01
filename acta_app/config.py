@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 
 # Versión visible al pie de la app. Además se muestra el commit de GitHub desplegado
 # (ver version_desplegada), que cambia solo con cada actualización.
-APP_VERSION = "0.27.0"
+APP_VERSION = "0.28.0"
 
 # El servidor (p. ej. Streamlit Cloud) corre en UTC; fechas y horas se toman en hora de Perú.
 ZONA_HORARIA = ZoneInfo("America/Lima")
@@ -21,6 +21,7 @@ PDF_DIR = DATA_DIR / "pdfs"
 LOGO_PATH = ASSETS_DIR / "logo.png"
 EXCEL_MAESTRO_PATH = DATA_DIR / "actas_maestro.xlsx"
 EQUIPOS_NUEVOS_PATH = DATA_DIR / "equipos_nuevos.xlsx"
+PREINSTALACIONES_PATH = DATA_DIR / "preinstalaciones.xlsx"
 
 # Catálogo para el autocompletado (ver acta_app/catalogo.py): equipos, sedes (clientes) y
 # departamentos (ubicación). Con SharePoint se leerá de «Equipos.xlsx» en la carpeta Actas.
@@ -47,6 +48,9 @@ SHAREPOINT_EQUIPOS = "Equipos.xlsx"  # catálogo para el autocompletado
 # Lo crea la app con el primer equipo nuevo.
 SHAREPOINT_EQUIPOS_NUEVOS = "Equipos_nuevos.xlsx"
 SHAREPOINT_BORRADORES = "Borradores"  # acta a medio llenar de cada usuario
+# Reporte de preinstalación (Presite): Excel maestro y PDFs propios, en la misma carpeta.
+SHAREPOINT_PREINSTALACIONES = "Preinstalaciones.xlsx"
+SHAREPOINT_CARPETA_PDF_PREINSTALACIONES = "PDF Preinstalaciones"
 # Protocolos de mantenimiento preventivo: checklist de «Acciones realizadas».
 SHAREPOINT_PROTOCOLOS = "Mantenimientos Preventivos.xlsx"
 # Repuestos: autocompletado de «Artículos empleados» (código -> descripción).
