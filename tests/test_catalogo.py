@@ -113,3 +113,15 @@ def test_equipo_es_nuevo_solo_si_su_serie_no_esta_en_el_catalogo(acta_completa):
     assert not es_equipo_nuevo(catalogo, acta_completa)
     acta_completa.numero_serie = "SN-NUEVA"
     assert es_equipo_nuevo(catalogo, acta_completa)
+
+
+def test_contiene_solo_valores_del_catalogo():
+    import pandas as pd
+
+    from acta_app.catalogo import Catalogo
+
+    catalogo = Catalogo(pd.DataFrame([{"equipo": "Centrífuga", "marca": "MarcaB", "modelo": "CF-20",
+                                       "serie": "S2", "cliente": "", "ubicacion": ""}]))
+    assert catalogo.contiene("equipo", "centrifuga ")
+    assert not catalogo.contiene("equipo", "Equipo escrito a mano")
+    assert not catalogo.contiene("modelo", "")

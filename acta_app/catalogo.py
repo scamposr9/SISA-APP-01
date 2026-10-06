@@ -89,6 +89,10 @@ class Catalogo:
         """¿El Excel trae valores para este campo? (p. ej. si ya incluye las sedes)."""
         return bool((self.datos[campo] != "").any())
 
+    def contiene(self, campo: str, valor: str) -> bool:
+        """¿El valor está en el catálogo? (un valor escrito a mano, no)."""
+        return bool(limpiar(valor)) and bool((self.datos[campo].map(clave) == clave(valor)).any())
+
     def _filtrar(self, seleccion: dict[str, str], excepto: str | None = None) -> pd.DataFrame:
         filas = self.datos
         for campo, valor in seleccion.items():

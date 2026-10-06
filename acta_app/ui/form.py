@@ -103,12 +103,27 @@ def _seleccion() -> dict[str, str]:
     return {c: st.session_state.get(k(c)) or "" for c in CAMPOS_CATALOGO}
 
 
-def _autocompletar() -> None:
+# Equipo, marca y modelo se deducen entre sí: borrar uno borra los otros dos.
+CAMPOS_EQUIPO = ("equipo", "marca", "modelo")
+
+
+def _autocompletar(campo: str) -> None:
     """Al elegir un valor, completa los campos vacíos que quedan determinados
     (p. ej. una serie única define equipo, marca, modelo, cliente y ubicación; un cliente,
-    su ubicación). Si hay varias coincidencias no se completa nada: decide el ingeniero."""
-    for campo, valor in cargar_catalogo().autocompletar(_seleccion()).items():
-        st.session_state[k(campo)] = valor
+    su ubicación). Si hay varias coincidencias no se completa nada: decide el ingeniero.
+
+    Al borrar un valor (la X) no se completa nada, para que el campo quede en blanco. Si es
+    equipo, marca o modelo, también se borran los otros dos cuando son del catálogo: si no,
+    seguirían filtrando las opciones y volvería a quedar un solo equipo para elegir."""
+    if not st.session_state.get(k(campo)):
+        if campo in CAMPOS_EQUIPO:
+            catalogo = cargar_catalogo()
+            for otro in CAMPOS_EQUIPO:
+                if catalogo.contiene(otro, st.session_state.get(k(otro)) or ""):
+                    st.session_state[k(otro)] = None
+        return
+    for otro, valor in cargar_catalogo().autocompletar(_seleccion()).items():
+        st.session_state[k(otro)] = valor
 
 
 def _usa_desplegable(campo: str) -> bool:
@@ -130,6 +145,7 @@ def _campo_catalogo(contenedor, texto: str, campo: str) -> str:
         placeholder="Escribe para buscar o agregar…",
         accept_new_options=True,
         on_change=_autocompletar,
+        args=(campo,),
     )
     return limpiar(valor)
 
