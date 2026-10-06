@@ -1,7 +1,6 @@
 """Reglas de validación del acta (mismas que el prototipo HTML)."""
 
 from acta_app import config
-from acta_app.encuesta_correo import errores_correo
 from acta_app.models import Acta
 
 
@@ -44,7 +43,6 @@ def validar_acta(acta: Acta) -> list[str]:
 
     if not acta.nombre_cliente:
         errores.append("Nombre del cliente")
-    errores += errores_correo(acta.correo_cliente, acta.correo_cliente_confirmacion)
     if not acta.firma_cliente_png:
         errores.append("Firma del cliente")
     if not acta.nombre_representante:

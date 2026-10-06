@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 
 # Versión visible al pie de la app. Además se muestra el commit de GitHub desplegado
 # (ver version_desplegada), que cambia solo con cada actualización.
-APP_VERSION = "0.25.1"
+APP_VERSION = "0.26.0"
 
 # El servidor (p. ej. Streamlit Cloud) corre en UTC; fechas y horas se toman en hora de Perú.
 ZONA_HORARIA = ZoneInfo("America/Lima")
@@ -84,12 +84,10 @@ ASPECTOS_ENCUESTA = [
 ]
 ESCALA_ENCUESTA = ["Muy malo", "Malo", "Regular", "Bueno", "Muy bueno"]  # 1 a 5
 NOTA_MAXIMA_ENCUESTA = 20  # la suma de los aspectos se lleva a escala vigesimal
-# Invitación por correo (Microsoft Graph, permiso Mail.Send). Se pueden cambiar en los
-# Secrets, sección [correo]: remitente y url_app.
-CORREO_REMITENTE = "encuestas@sistemasanaliticos.com"
+# QR de la encuesta: dirección pública de la app (se puede cambiar en los Secrets, sección
+# [app]: url_app) y horas que vale cada QR.
 URL_APP = "https://sisa-app.streamlit.app"
 HORAS_VIGENCIA_ENCUESTA = 24
-DOMINIO_EMPRESA = "sistemasanaliticos.com"
 
 
 # ---------- Paleta (idéntica al prototipo HTML) ----------

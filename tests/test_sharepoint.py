@@ -27,7 +27,6 @@ class SharePointFalso:
         self.archivos: dict[str, tuple[bytes, int]] = {}
         self.carpetas = {CARPETA}
         self.antes_de_escribir = None  # para simular a otro usuario guardando
-        self.correos = []
 
     def _url(self, ruta):
         return f"https://sp.example/{ruta}"
@@ -52,9 +51,6 @@ class SharePointFalso:
 
     def eliminar(self, ruta):
         self.archivos.pop(ruta, None)
-
-    def enviar_correo(self, remitente, destino, asunto, html):
-        self.correos.append((remitente, destino, asunto, html))
 
     def listar(self, ruta):
         hijos = {}
@@ -360,13 +356,11 @@ def test_nota_de_la_encuesta_sobre_20():
     assert EncuestaSatisfaccion(dict(zip(aspectos, [5, 4, 4, 3, 5]))).nota == 16.8
 
 
-# ---------- Encuesta por correo ----------
-def _codigo_del_enlace(html):
-    import re
-    from urllib.parse import parse_qs, unquote, urlparse
+# ---------- QR de la encuesta ----------
+def _codigo_del_enlace(enlace):
+    from urllib.parse import parse_qs, urlparse
 
-    enlace = re.search(r'href="([^"]+)"', html).group(1).replace("&amp;", "&")
-    return parse_qs(urlparse(unquote(enlace)).query)["t"][0], enlace
+    return parse_qs(urlparse(enlace).query)["t"][0]
 
 
 def _puntajes():
@@ -375,68 +369,57 @@ def _puntajes():
                           "Eficiencia en el trabajo"], 4)
 
 
-def test_invitacion_por_correo_y_enlace_de_un_solo_uso(repo, sp, acta_completa):
-    from acta_app.encuesta_correo import enviar_invitacion, hash_codigo
+def test_qr_de_la_encuesta_de_un_solo_uso(repo, sp, acta_completa):
+    from acta_app.encuesta_qr import generar_qr, hash_codigo
     from acta_app.models import EncuestaSatisfaccion
     from acta_app.storage import EnlaceEncuestaInvalidoError, EncuestaYaRespondidaError
 
-    acta_completa.correo_cliente = "cliente@hospital.pe"
     repo.guardar(acta_completa, b"%PDF", "Acta_2026-00051.pdf")
-    envio = enviar_invitacion(repo, acta_completa, "Cliente@Hospital.pe ", "encuestas@sistemasanaliticos.com",
-                              "https://sisa-app.streamlit.app")
-
-    remitente, destino, asunto, html = sp.correos[-1]
-    assert (remitente, destino) == ("encuestas@sistemasanaliticos.com", "cliente@hospital.pe")
-    assert "2026-00051" in asunto
-    codigo, enlace = _codigo_del_enlace(html)
+    assert "QR de la encuesta generado el" not in _fila(sp)  # sin QR, sin columnas de encuesta
+    acceso, enlace = generar_qr(repo, "2026-00051", "https://sisa-app.streamlit.app/")
+    codigo = _codigo_del_enlace(enlace)
     assert enlace.startswith("https://sisa-app.streamlit.app/?encuesta=2026-00051&t=")
-    assert (envio.vence - envio.enviada).total_seconds() == 24 * 3600
+    assert (acceso.vence - acceso.generado).total_seconds() == 24 * 3600
 
     fila = _fila(sp)
-    assert fila["Correo del cliente"].value == "cliente@hospital.pe"
-    assert fila["Encuesta enviada a"].value == "cliente@hospital.pe"
     assert fila["Código de acceso (hash)"].value == hash_codigo(codigo)
+    assert fila["QR de la encuesta vence el"].value is not None
     assert codigo not in str([c.value for c in fila.values()])  # el código no se guarda
 
     with pytest.raises(EnlaceEncuestaInvalidoError):
         repo.guardar_encuesta("2026-00051", EncuestaSatisfaccion(_puntajes()), hash_codigo("otro"))
     repo.guardar_encuesta("2026-00051", EncuestaSatisfaccion(_puntajes()), hash_codigo(codigo))
     assert _fila(sp)["Calificación final (/20)"].value == 16
-    assert _fila(sp)["Encuesta enviada a"].value == "cliente@hospital.pe"  # se conserva
+    assert _fila(sp)["Código de acceso (hash)"].value == hash_codigo(codigo)  # se conserva
+    # Ya usado: ni el mismo QR ni uno nuevo sirven.
     with pytest.raises(EncuestaYaRespondidaError):
-        enviar_invitacion(repo, acta_completa, "otro@x.pe", "e@x", "https://a")
+        repo.guardar_encuesta("2026-00051", EncuestaSatisfaccion(_puntajes()), hash_codigo(codigo))
+    with pytest.raises(EncuestaYaRespondidaError):
+        generar_qr(repo, "2026-00051", "https://a")
 
 
-def test_reenvio_anula_el_enlace_anterior_y_el_enlace_vence(repo, sp, acta_completa):
+def test_qr_nuevo_anula_el_anterior_y_el_qr_vence(repo, sp, acta_completa):
     from datetime import timedelta
 
-    from acta_app.encuesta_correo import enviar_invitacion, hash_codigo
+    from acta_app.encuesta_qr import generar_qr, hash_codigo
     from acta_app.models import EncuestaSatisfaccion
     from acta_app.storage import EnlaceEncuestaInvalidoError
 
     repo.guardar(acta_completa, b"%PDF", "Acta_2026-00051.pdf")
-    enviar_invitacion(repo, acta_completa, "mal@correo.pe", "e@x", "https://a")
-    viejo, _ = _codigo_del_enlace(sp.correos[-1][3])
-    enviar_invitacion(repo, acta_completa, "bien@correo.pe", "e@x", "https://a")
-    nuevo, _ = _codigo_del_enlace(sp.correos[-1][3])
+    _, enlace_viejo = generar_qr(repo, "2026-00051", "https://a")
+    generar_qr(repo, "2026-00051", "https://a")
 
     with pytest.raises(EnlaceEncuestaInvalidoError):
-        repo.guardar_encuesta("2026-00051", EncuestaSatisfaccion(_puntajes()), hash_codigo(viejo))
+        repo.guardar_encuesta("2026-00051", EncuestaSatisfaccion(_puntajes()),
+                              hash_codigo(_codigo_del_enlace(enlace_viejo)))
 
     acta = repo.obtener("2026-00051")
-    assert acta.envio_encuesta.correo == "bien@correo.pe"
-    assert acta.envio_encuesta.vigente()
-    assert not acta.envio_encuesta.vigente(acta.envio_encuesta.vence + timedelta(minutes=1))
+    assert acta.acceso_encuesta.vigente()
+    assert not acta.acceso_encuesta.vigente(acta.acceso_encuesta.vence + timedelta(minutes=1))
 
 
-def test_graph_envia_el_correo_desde_el_buzon(graph):
-    falso, almacen = graph
-    falso.respuestas[("POST", "/users/encuestas%40sistemasanaliticos.com/sendMail")] = Respuesta(202)
-    almacen.enviar_correo("encuestas@sistemasanaliticos.com", "c@x.pe", "Asunto", "<p>Hola</p>")
-    _, _, headers, kwargs = falso.peticiones[-1]
-    assert headers["Authorization"] == "Bearer TOKEN"
-    assert kwargs["json"]["message"]["toRecipients"][0]["emailAddress"]["address"] == "c@x.pe"
+def test_imagen_del_qr_es_un_png():
+    from acta_app.encuesta_qr import imagen_qr
 
-    falso.respuestas[("POST", "/users/encuestas%40sistemasanaliticos.com/sendMail")] = Respuesta(403)
-    with pytest.raises(AlmacenamientoError, match="Mail.Send"):
-        almacen.enviar_correo("encuestas@sistemasanaliticos.com", "c@x.pe", "Asunto", "<p>Hola</p>")
+    png = imagen_qr("https://sisa-app.streamlit.app/?encuesta=2026-00051&t=" + "x" * 43)
+    assert png.startswith(b"\x89PNG")

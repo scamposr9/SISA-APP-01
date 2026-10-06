@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, time
 
 from acta_app import config
-from acta_app.models import Acta, ActividadChecklist, Articulo, EncuestaSatisfaccion, EnvioEncuesta
+from acta_app.models import Acta, ActividadChecklist, Articulo, AccesoEncuesta, EncuestaSatisfaccion
 
 FORMATO_FECHA = "dd/mm/yyyy"
 FORMATO_FECHA_HORA = "dd/mm/yyyy hh:mm:ss"  # 24 horas
@@ -30,7 +30,12 @@ COLUMNA_PDF_ORIGINAL = "PDF original"
 COLUMNA_PDF_CORREGIDO = "PDF corregido"
 COLUMNAS_PDF = (COLUMNA_PDF_ORIGINAL, COLUMNA_PDF_CORREGIDO)
 # Encabezados de versiones anteriores del Excel que siguen reconociéndose.
-ALIAS_ENCABEZADOS = {"Archivo PDF": COLUMNA_PDF_ORIGINAL}
+ALIAS_ENCABEZADOS = {
+    "Archivo PDF": COLUMNA_PDF_ORIGINAL,
+    # Versión con envío por correo (reemplazada por el QR).
+    "Encuesta enviada el": "QR de la encuesta generado el",
+    "Encuesta vence el": "QR de la encuesta vence el",
+}
 
 
 @dataclass(frozen=True)
@@ -90,13 +95,12 @@ COLUMNA_FECHA_ENCUESTA = "Fecha de la encuesta"
 COLUMNAS_RESPUESTA_ENCUESTA = (
     *config.ASPECTOS_ENCUESTA, COLUMNA_NOTA_ENCUESTA, COLUMNA_COMENTARIO_ENCUESTA, COLUMNA_FECHA_ENCUESTA,
 )
-# Envío de la invitación por correo (el código del enlace solo se guarda como hash).
-COLUMNA_ENVIADA_A = "Encuesta enviada a"
-COLUMNA_ENVIADA_EL = "Encuesta enviada el"
-COLUMNA_VENCE_EL = "Encuesta vence el"
+# QR mostrado al cliente (el código del enlace solo se guarda como hash).
+COLUMNA_QR_GENERADO = "QR de la encuesta generado el"
+COLUMNA_QR_VENCE = "QR de la encuesta vence el"
 COLUMNA_CLAVE_HASH = "Código de acceso (hash)"
-COLUMNAS_ENVIO_ENCUESTA = (COLUMNA_ENVIADA_A, COLUMNA_ENVIADA_EL, COLUMNA_VENCE_EL, COLUMNA_CLAVE_HASH)
-COLUMNAS_FECHA_ENCUESTA = (COLUMNA_FECHA_ENCUESTA, COLUMNA_ENVIADA_EL, COLUMNA_VENCE_EL)
+COLUMNAS_ACCESO_ENCUESTA = (COLUMNA_QR_GENERADO, COLUMNA_QR_VENCE, COLUMNA_CLAVE_HASH)
+COLUMNAS_FECHA_ENCUESTA = (COLUMNA_FECHA_ENCUESTA, COLUMNA_QR_GENERADO, COLUMNA_QR_VENCE)
 
 
 def _respuesta(acta: Acta) -> tuple:
@@ -106,25 +110,25 @@ def _respuesta(acta: Acta) -> tuple:
     return (*(e.puntajes.get(a) for a in config.ASPECTOS_ENCUESTA), e.nota, e.comentario or None, e.fecha)
 
 
-def _envio(acta: Acta) -> tuple:
-    v = acta.envio_encuesta
+def _acceso(acta: Acta) -> tuple:
+    v = acta.acceso_encuesta
     if v is None:
-        return (None,) * len(COLUMNAS_ENVIO_ENCUESTA)
-    return (v.correo, v.enviada, v.vence, v.clave_hash)
+        return (None,) * len(COLUMNAS_ACCESO_ENCUESTA)
+    return (v.generado, v.vence, v.clave_hash)
 
 
 def _encuesta(acta: Acta) -> tuple | None:
-    if acta.encuesta is None and acta.envio_encuesta is None:
+    if acta.encuesta is None and acta.acceso_encuesta is None:
         return None
-    return (*_respuesta(acta), *_envio(acta))
+    return (*_respuesta(acta), *_acceso(acta))
 
 
 BLOQUE_ENCUESTA = BloqueFijo(
     "Encuesta de satisfacción del servicio",
-    (*COLUMNAS_RESPUESTA_ENCUESTA, *COLUMNAS_ENVIO_ENCUESTA),
+    (*COLUMNAS_RESPUESTA_ENCUESTA, *COLUMNAS_ACCESO_ENCUESTA),
     _encuesta,
-    anchos=(*[18] * len(config.ASPECTOS_ENCUESTA), 16, 40, 20, 30, 20, 20, 24),
-    formatos=(*[None] * len(config.ASPECTOS_ENCUESTA), "0.0", None, None, None, None, None, None),
+    anchos=(*[18] * len(config.ASPECTOS_ENCUESTA), 16, 40, 20, 22, 22, 24),
+    formatos=(*[None] * len(config.ASPECTOS_ENCUESTA), "0.0", None, None, None, None, None),
 )
 
 
@@ -157,7 +161,6 @@ ESQUEMA: list[Campo | Grupo] = [
     ),
     Grupo("Observaciones y/o Recomendaciones", "Observación", _textos(lambda a: a.observaciones)),
     Campo("Nombre Cliente", lambda a: a.nombre_cliente, ancho=24),
-    Campo("Correo del cliente", lambda a: a.correo_cliente, ancho=30),
     Campo("Firma Cliente", lambda a: "Firmado" if a.firma_cliente_png else "Pendiente", ancho=12),
     Campo("Nombre Representante Sistemas Analíticos", lambda a: a.nombre_representante, ancho=26),
     Campo(
@@ -229,12 +232,11 @@ def encuesta_desde_registro(registro: Registro) -> EncuestaSatisfaccion | None:
     )
 
 
-def envio_desde_registro(registro: Registro) -> EnvioEncuesta | None:
-    v = registro.valores
-    correo, enviada, vence, clave_hash = (v.get(c) for c in COLUMNAS_ENVIO_ENCUESTA)
-    if not (correo and isinstance(enviada, datetime) and isinstance(vence, datetime) and clave_hash):
+def acceso_desde_registro(registro: Registro) -> AccesoEncuesta | None:
+    generado, vence, clave_hash = (registro.valores.get(c) for c in COLUMNAS_ACCESO_ENCUESTA)
+    if not (isinstance(generado, datetime) and isinstance(vence, datetime) and clave_hash):
         return None
-    return EnvioEncuesta(str(correo).strip(), enviada, vence, str(clave_hash).strip())
+    return AccesoEncuesta(generado, vence, str(clave_hash).strip())
 
 
 def tiene_encuesta(registro: Registro) -> bool:
@@ -289,8 +291,7 @@ def acta_desde_registro(registro: Registro) -> Acta:
         ],
         observaciones=lista("Observaciones y/o Recomendaciones"),
         nombre_cliente=texto("Nombre Cliente"),
-        correo_cliente=texto("Correo del cliente"),
-        envio_encuesta=envio_desde_registro(registro),
+        acceso_encuesta=acceso_desde_registro(registro),
         nombre_representante=texto("Nombre Representante Sistemas Analíticos"),
         fecha_registro=v.get("Fecha de registro") if isinstance(v.get("Fecha de registro"), datetime) else None,
         revision=int(v.get("Revisión") or 0),

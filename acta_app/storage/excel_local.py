@@ -13,7 +13,7 @@ import pandas as pd
 from openpyxl import Workbook, load_workbook
 
 from acta_app import config, equipos_nuevos, ingenieros
-from acta_app.models import Acta, EncuestaSatisfaccion, EnvioEncuesta, ahora
+from acta_app.models import AccesoEncuesta, Acta, EncuestaSatisfaccion, ahora
 from acta_app.storage.base import (
     ActaDuplicadaError,
     ActaNoEncontradaError,
@@ -22,7 +22,7 @@ from acta_app.storage.base import (
     normalizar_numero,
     copiar_encuesta,
     poner_encuesta,
-    poner_envio,
+    poner_acceso,
     validar_codigo,
 )
 from acta_app.storage.esquema import (
@@ -201,13 +201,8 @@ class RepositorioExcelLocal:
         encuesta.fecha = encuesta.fecha or ahora()
         self._modificar_fila(numero, lambda r: (validar_codigo(r, clave_hash), poner_encuesta(r, encuesta)))
 
-    def registrar_envio_encuesta(self, numero: str, envio: EnvioEncuesta) -> None:
-        self._modificar_fila(numero, lambda r: poner_envio(r, envio))
-
-    def enviar_correo(self, remitente: str, destino: str, asunto: str, html: str) -> None:
-        raise AlmacenamientoError(
-            "Sin conexión a SharePoint/Microsoft 365 la app no puede enviar correos."
-        )
+    def registrar_acceso_encuesta(self, numero: str, acceso: AccesoEncuesta) -> None:
+        self._modificar_fila(numero, lambda r: poner_acceso(r, acceso))
 
     def _modificar_fila(self, numero: str, cambio) -> None:
         with _LOCK:

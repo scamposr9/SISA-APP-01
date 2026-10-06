@@ -5,7 +5,7 @@ from __future__ import annotations
 import streamlit as st
 
 from acta_app import config
-from acta_app.encuesta_correo import hash_codigo
+from acta_app.encuesta_qr import hash_codigo
 from acta_app.models import EncuestaSatisfaccion, formatear_fecha
 from acta_app.storage import (
     ActaNoEncontradaError,
@@ -19,8 +19,8 @@ from acta_app.ui.components import encabezado, seccion
 PARAMETRO = "encuesta"
 PARAMETRO_CODIGO = "t"
 MENSAJE_ENLACE_INVALIDO = (
-    "Este enlace no es válido o ya venció. Si necesita responder la encuesta, solicite a "
-    f"{config.EMPRESA} que se la envíe nuevamente."
+    "Este código QR no es válido, ya venció o ya se usó. Si necesita responder la encuesta, "
+    f"solicite al ingeniero de {config.EMPRESA} que le muestre uno nuevo."
 )
 _COLORES = {0: config.RED, len(config.ESCALA_ENCUESTA) - 1: "#1E8449"}
 _CARAS = {0: " 🙁", len(config.ESCALA_ENCUESTA) - 1: " 🙂"}
@@ -30,8 +30,8 @@ MENSAJE_COMENTARIOS = (
 
 
 def abrir_encuesta(numero: str) -> None:
-    """Callback: lleva a la página de la encuesta de esa acta (la dirección queda con
-    ?encuesta=<N.°>, que más adelante se podrá compartir como enlace o QR)."""
+    """Callback: lleva a la página de la encuesta de esa acta (?encuesta=<N.°>, sin código:
+    solo para pruebas de los desarrolladores)."""
     st.query_params[PARAMETRO] = numero
 
 
@@ -40,7 +40,7 @@ def numero_en_la_direccion() -> str | None:
 
 
 def codigo_en_la_direccion() -> str | None:
-    """Código del enlace enviado por correo (?t=…): abre la encuesta sin iniciar sesión."""
+    """Código del QR de la encuesta (?t=…): abre la encuesta sin iniciar sesión."""
     return st.query_params.get(PARAMETRO_CODIGO) or None
 
 
@@ -59,8 +59,8 @@ def _encabezado_escala() -> str:
 def pagina_encuesta(numero: str, codigo: str | None = None) -> None:
     """Muestra la encuesta del acta y, al terminar, solo el agradecimiento.
 
-    Con `codigo` (enlace del correo, sin inicio de sesión) solo se abre si coincide con la
-    invitación vigente del acta: mismo código, sin vencer y sin responder."""
+    Con `codigo` (QR mostrado al cliente, sin inicio de sesión) solo se abre si coincide con
+    el QR vigente del acta: mismo código, sin vencer y sin responder."""
     encabezado()
     if st.session_state.get(_clave(numero, "terminada")):
         st.success("¡Gracias por responder la encuesta! Tus respuestas quedaron registradas.", icon="✅")
@@ -75,14 +75,14 @@ def pagina_encuesta(numero: str, codigo: str | None = None) -> None:
         return
     # Primero el código: con un enlace inválido no se revela nada más del acta.
     clave_hash = hash_codigo(codigo) if codigo else None
-    envio = acta.envio_encuesta
-    if clave_hash and (envio is None or envio.clave_hash != clave_hash):
+    acceso = acta.acceso_encuesta
+    if clave_hash and (acceso is None or acceso.clave_hash != clave_hash):
         st.error(MENSAJE_ENLACE_INVALIDO, icon="❌")
         return
     if acta.encuesta is not None:
         st.info("La encuesta de esta acta ya fue respondida. ¡Gracias!", icon="ℹ️")
         return
-    if clave_hash and not envio.vigente():
+    if clave_hash and not acceso.vigente():
         st.error(MENSAJE_ENLACE_INVALIDO, icon="❌")
         return
 

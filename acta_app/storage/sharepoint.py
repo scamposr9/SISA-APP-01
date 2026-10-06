@@ -25,7 +25,7 @@ import pandas as pd
 from openpyxl import load_workbook
 
 from acta_app import config, equipos_nuevos, ingenieros
-from acta_app.models import Acta, EncuestaSatisfaccion, EnvioEncuesta, ahora
+from acta_app.models import AccesoEncuesta, Acta, EncuestaSatisfaccion, ahora
 from acta_app.storage.base import (
     ActaDuplicadaError,
     ActaNoEncontradaError,
@@ -34,7 +34,7 @@ from acta_app.storage.base import (
     normalizar_numero,
     copiar_encuesta,
     poner_encuesta,
-    poner_envio,
+    poner_acceso,
     validar_codigo,
 )
 from acta_app.storage.esquema import (
@@ -273,11 +273,8 @@ class RepositorioSharePoint:
         encuesta.fecha = encuesta.fecha or ahora()
         self._modificar_fila(numero, lambda r: (validar_codigo(r, clave_hash), poner_encuesta(r, encuesta)))
 
-    def registrar_envio_encuesta(self, numero: str, envio: EnvioEncuesta) -> None:
-        self._modificar_fila(numero, lambda r: poner_envio(r, envio))
-
-    def enviar_correo(self, remitente: str, destino: str, asunto: str, html: str) -> None:
-        self.almacen.enviar_correo(remitente, destino, asunto, html)
+    def registrar_acceso_encuesta(self, numero: str, acceso: AccesoEncuesta) -> None:
+        self._modificar_fila(numero, lambda r: poner_acceso(r, acceso))
 
     def _modificar_fila(self, numero: str, cambio) -> None:
         """Aplica `cambio` a la fila del acta y guarda Actas.xlsx (reintenta si otro la cambió)."""
@@ -483,38 +480,6 @@ class AlmacenGraph:
     def enlace(self, ruta: str) -> str | None:
         item = self._item(ruta)
         return item.get("webUrl") if item else None
-
-    def enviar_correo(self, remitente: str, destino: str, asunto: str, html: str) -> None:
-        """Envía un correo desde el buzón `remitente` (permiso de aplicación Mail.Send)."""
-        mensaje = {
-            "message": {
-                "subject": asunto,
-                "body": {"contentType": "HTML", "content": html},
-                "toRecipients": [{"emailAddress": {"address": destino}}],
-            },
-            "saveToSentItems": True,
-        }
-        try:
-            respuesta = self._http.request(
-                "POST", f"{GRAPH}/users/{quote(remitente)}/sendMail", json=mensaje, timeout=60,
-                headers={"Authorization": f"Bearer {self._token()}"},
-            )
-        except AlmacenamientoError:
-            raise
-        except Exception as exc:  # sin conexión, DNS, timeout...
-            raise AlmacenamientoError(f"No se pudo conectar con Microsoft para enviar el correo: {exc}") from exc
-        if respuesta.status_code in (401, 403):
-            raise AlmacenamientoError(
-                f"Microsoft no permitió enviar el correo desde {remitente} (HTTP {respuesta.status_code}). "
-                f"Verifica que «{config.AZURE_APP_NOMBRE}» tenga el permiso de aplicación Mail.Send "
-                "con consentimiento de administrador y acceso a ese buzón."
-            )
-        if respuesta.status_code == 404:
-            raise AlmacenamientoError(f"No existe el buzón {remitente} en Microsoft 365.")
-        if respuesta.status_code >= 400:
-            raise AlmacenamientoError(
-                f"No se pudo enviar el correo (HTTP {respuesta.status_code}): {respuesta.text[:300]}"
-            )
 
     # ---------- Internos ----------
     def _token(self) -> str:

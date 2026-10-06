@@ -7,13 +7,13 @@ from typing import TYPE_CHECKING, Protocol
 
 import pandas as pd
 
-from acta_app.models import Acta, EncuestaSatisfaccion, EnvioEncuesta
+from acta_app.models import Acta, AccesoEncuesta, EncuestaSatisfaccion
 from acta_app.storage.esquema import (
     BLOQUE_ENCUESTA,
     COLUMNAS_ENCUESTA,
-    COLUMNAS_ENVIO_ENCUESTA,
+    COLUMNAS_ACCESO_ENCUESTA,
     COLUMNAS_RESPUESTA_ENCUESTA,
-    envio_desde_registro,
+    acceso_desde_registro,
     tiene_encuesta,
 )
 
@@ -71,16 +71,13 @@ class RepositorioActas(Protocol):
     def guardar_encuesta(self, numero: str, encuesta: EncuestaSatisfaccion,
                          clave_hash: str | None = None) -> None:
         """Escribe la encuesta en la fila del acta. Con `clave_hash` (encuesta abierta desde
-        el enlace del correo) verifica que el enlace siga vigente. Lanza ActaNoEncontradaError,
+        el QR) verifica que el QR siga vigente. Lanza ActaNoEncontradaError,
         EncuestaYaRespondidaError o EnlaceEncuestaInvalidoError."""
         ...
 
-    def registrar_envio_encuesta(self, numero: str, envio: EnvioEncuesta) -> None:
-        """Guarda a qué correo se envió la encuesta, cuándo vence y el hash del código."""
-        ...
-
-    def enviar_correo(self, remitente: str, destino: str, asunto: str, html: str) -> None:
-        """Envía un correo desde el buzón `remitente` (Microsoft Graph, permiso Mail.Send)."""
+    def registrar_acceso_encuesta(self, numero: str, acceso: AccesoEncuesta) -> None:
+        """Guarda cuándo se generó el QR de la encuesta, cuándo vence y el hash del código.
+        Lanza EncuestaYaRespondidaError si la encuesta ya se respondió."""
         ...
 
     def excel_bytes(self) -> bytes | None:
@@ -137,20 +134,20 @@ def poner_encuesta(registro: Registro, encuesta: EncuestaSatisfaccion) -> None:
     registro.valores.update(zip(COLUMNAS_RESPUESTA_ENCUESTA, respuesta))
 
 
-def poner_envio(registro: Registro, envio: EnvioEncuesta) -> None:
-    """Registra (o reemplaza, si se reenvía) la invitación: el enlace anterior deja de valer."""
+def poner_acceso(registro: Registro, acceso: AccesoEncuesta) -> None:
+    """Registra (o reemplaza, si se genera otro) el QR: el QR anterior deja de valer."""
     if tiene_encuesta(registro):
         raise EncuestaYaRespondidaError(registro.numero)
-    envio_cols = BLOQUE_ENCUESTA.valores(Acta(envio_encuesta=envio))[len(COLUMNAS_RESPUESTA_ENCUESTA):]
-    registro.valores.update(zip(COLUMNAS_ENVIO_ENCUESTA, envio_cols))
+    columnas = BLOQUE_ENCUESTA.valores(Acta(acceso_encuesta=acceso))[len(COLUMNAS_RESPUESTA_ENCUESTA):]
+    registro.valores.update(zip(COLUMNAS_ACCESO_ENCUESTA, columnas))
 
 
 def validar_codigo(registro: Registro, clave_hash: str | None) -> None:
-    """Con `clave_hash`, exige que coincida con la invitación vigente del acta."""
+    """Con `clave_hash`, exige que coincida con el QR vigente del acta."""
     if clave_hash is None:
         return
-    envio = envio_desde_registro(registro)
-    if envio is None or envio.clave_hash != clave_hash or not envio.vigente():
+    acceso = acceso_desde_registro(registro)
+    if acceso is None or acceso.clave_hash != clave_hash or not acceso.vigente():
         raise EnlaceEncuestaInvalidoError(registro.numero)
 
 

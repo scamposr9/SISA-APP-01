@@ -18,7 +18,7 @@ from acta_app.storage import (
     usa_sharepoint,
 )
 from acta_app.ui.components import encabezado, etiqueta, seccion
-from acta_app.encuesta_correo import enviar_invitacion, errores_correo, normalizar_correo
+from acta_app.encuesta_qr import generar_qr, imagen_qr
 from acta_app.ui.encuesta import (
     abrir_encuesta,
     codigo_en_la_direccion,
@@ -96,8 +96,8 @@ def exigir_inicio_de_sesion() -> None:
     st.stop()
 
 
-# Enlace de la encuesta enviado al cliente (?encuesta=<N.°>&t=<código>): se abre sin iniciar
-# sesión, solo la encuesta, y solo si el código es el de la invitación vigente de esa acta.
+# QR de la encuesta que escanea el cliente (?encuesta=<N.°>&t=<código>): se abre sin iniciar
+# sesión, solo la encuesta, y solo si el código es el del QR vigente de esa acta.
 if (numero_encuesta := numero_en_la_direccion()) and (codigo_encuesta := codigo_en_la_direccion()):
     pagina_encuesta(numero_encuesta, codigo_encuesta)
     st.stop()
@@ -110,7 +110,7 @@ if numero_encuesta := numero_en_la_direccion():
         pagina_encuesta(numero_encuesta)
     else:
         encabezado()
-        st.error("La encuesta se abre con el enlace enviado al correo del cliente.", icon="❌")
+        st.error("La encuesta se abre escaneando el código QR que muestra el ingeniero.", icon="❌")
     st.stop()
 
 
@@ -124,9 +124,48 @@ def dialogo_fila(acta: Acta) -> None:
     st.code(texto, language=None, wrap_lines=True)
 
 
+def url_app() -> str:
+    """Dirección pública de la app (la que va en el QR); se puede cambiar en [app] url_app."""
+    try:
+        return str(st.secrets.get("app", {}).get("url_app") or config.URL_APP)
+    except Exception:  # sin archivo de Secrets
+        return config.URL_APP
+
+
+def qr_encuesta(numero: str, clave: str) -> None:
+    """Botón «Visualizar encuesta con QR»: genera el QR del acta (24 horas, un solo uso) y lo
+    muestra para que el cliente lo escanee. Ya mostrado, el botón se oculta (el QR queda en
+    pantalla); generar otro QR para la misma acta anula el anterior."""
+    estado = f"qr_{clave}_{numero}"
+    if estado not in st.session_state and st.button(
+        "Visualizar encuesta con QR", key=f"btn_{estado}", icon=":material/qr_code_2:", width="stretch",
+    ):
+        try:
+            acceso, enlace = generar_qr(obtener_repositorio(), numero, url_app())
+        except EncuestaYaRespondidaError:
+            st.session_state.pop(estado, None)
+            st.info(f"El cliente ya respondió la encuesta del acta N.° {numero}.", icon="ℹ️")
+            return
+        except (AlmacenamientoError, ActaNoEncontradaError) as exc:
+            st.error(f"No se pudo generar el QR de la encuesta: {exc}", icon="❌")
+            return
+        st.session_state[estado] = (acceso, enlace, imagen_qr(enlace))
+    if (datos := st.session_state.get(estado)) is None:
+        return
+    acceso, enlace, png = datos
+    with st.container(key=f"qr_encuesta_{clave}", horizontal_alignment="center"):
+        st.markdown("**Encuesta de satisfacción del servicio**")
+        st.image(png, width=280)
+        st.caption(
+            "Escanee este código con la cámara de su celular para evaluar el servicio. "
+            f"Acta N.° {numero} · válido hasta el {acceso.vence:%d/%m/%Y a las %H:%M} · un solo uso."
+        )
+    if es_desarrollador():
+        st.code(enlace, language=None, wrap_lines=True)
+
+
 @st.dialog("Acta guardada correctamente")
-def dialogo_guardado(acta: Acta, pdf: bytes, nombre_pdf: str, total_actas: int, enlace_pdf: str = "",
-                     envio: tuple[bool, str] | None = None) -> None:
+def dialogo_guardado(acta: Acta, pdf: bytes, nombre_pdf: str, total_actas: int, enlace_pdf: str = "") -> None:
     st.write(
         f"El acta N.° {acta.numero} se agregó como una nueva fila al Excel maestro "
         f"({total_actas} {'acta registrada' if total_actas == 1 else 'actas registradas'} en total) "
@@ -144,9 +183,7 @@ def dialogo_guardado(acta: Acta, pdf: bytes, nombre_pdf: str, total_actas: int, 
     )
     if enlace_pdf.startswith("http"):
         st.link_button("Abrir el PDF en SharePoint", enlace_pdf, width="stretch")
-    if envio is not None:
-        enviado, mensaje = envio
-        (st.success if enviado else st.error)(mensaje, icon="📧" if enviado else "❌")
+    qr_encuesta(acta.numero, "guardado")
     if es_desarrollador() and st.button("Abrir encuesta de satisfacción (prueba)", on_click=abrir_encuesta,
                                         args=(acta.numero,), width="stretch"):
         st.rerun()
@@ -292,28 +329,16 @@ def seccion_base_de_datos() -> None:
         )
 
 
-def reenviar_encuesta() -> None:
-    """Corrige el correo de la encuesta de un acta: envía un enlace nuevo y anula el anterior."""
+def qr_de_otra_acta() -> None:
+    """QR de la encuesta de un acta ya guardada (p. ej. si se cerró la ventana)."""
     try:
         numeros = obtener_repositorio().numeros()
     except AlmacenamientoError as exc:
         st.error(str(exc), icon="❌")
         return
-    numero = st.selectbox("Acta", numeros, index=None, placeholder="N.° de acta", key="reenvio_numero")
-    correo = st.text_input("Nuevo correo del cliente", key="reenvio_correo")
-    confirmacion = st.text_input("Confirma el correo", key="reenvio_conf")
-    if st.button("Enviar encuesta", type="primary", key="reenvio_enviar"):
-        errores = errores_correo(correo, confirmacion) or ([] if correo else ["Escribe el correo del cliente"])
-        if not numero or errores:
-            st.warning("Elige el acta. " * (not numero) + " ".join(errores), icon="⚠️")
-            return
-        try:
-            acta = obtener_repositorio().obtener(numero)
-        except (AlmacenamientoError, ActaNoEncontradaError) as exc:
-            st.error(str(exc), icon="❌")
-            return
-        enviado, mensaje = enviar_encuesta(acta, normalizar_correo(correo))
-        (st.success if enviado else st.error)(mensaje, icon="📧" if enviado else "❌")
+    numero = st.selectbox("Acta", numeros, index=None, placeholder="N.° de acta", key="qr_otra_acta")
+    if numero:
+        qr_encuesta(numero, "otra")
 
 
 def mostrar_repuestos() -> None:
@@ -428,8 +453,8 @@ def seccion_conexion() -> None:
         if c2.button("Actualizar catálogo de equipos", width="stretch"):
             refrescar_catalogo()
             st.success("Se volverá a leer Equipos.xlsx de SharePoint.", icon="✅")
-        with st.popover("Reenviar encuesta a otro correo", width="stretch"):
-            reenviar_encuesta()
+        with st.popover("QR de la encuesta de un acta guardada", width="stretch"):
+            qr_de_otra_acta()
         if st.button("Ver repuestos detectados (Repuestos.xlsx)", width="stretch"):
             mostrar_repuestos()
         if st.button("Ver protocolos de mantenimiento preventivo detectados", width="stretch"):
@@ -493,28 +518,6 @@ def anotar_si_es_equipo_nuevo(acta: Acta) -> None:
         st.warning(f"El acta se guardó, pero no se pudo anotar el equipo nuevo: {exc}", icon="⚠️")
 
 
-def configuracion_correo() -> tuple[str, str]:
-    """(buzón remitente, dirección pública de la app); se pueden cambiar en [correo]."""
-    try:
-        cfg = st.secrets.get("correo", {})
-    except Exception:  # sin archivo de Secrets
-        cfg = {}
-    return cfg.get("remitente", config.CORREO_REMITENTE), cfg.get("url_app", config.URL_APP)
-
-
-def enviar_encuesta(acta: Acta, correo: str) -> tuple[bool, str]:
-    """Envía la invitación a la encuesta. Devuelve (enviado, mensaje para mostrar)."""
-    remitente, url_app = configuracion_correo()
-    try:
-        envio = enviar_invitacion(obtener_repositorio(), acta, correo, remitente, url_app)
-    except EncuestaYaRespondidaError:
-        return False, f"La encuesta del acta N.° {acta.numero} ya fue respondida; no se envió de nuevo."
-    except (AlmacenamientoError, ActaNoEncontradaError) as exc:
-        return False, f"El acta se guardó, pero no se pudo enviar la encuesta a {correo}: {exc}"
-    return True, (f"Encuesta enviada a {envio.correo}. El enlace vence el "
-                  f"{envio.vence:%d/%m/%Y a las %H:%M}.")
-
-
 def guardar_acta_nueva(acta: Acta) -> None:
     repo = obtener_repositorio()
     try:
@@ -537,8 +540,7 @@ def guardar_acta_nueva(acta: Acta) -> None:
     else:
         banner.success(f"Acta N.° {acta.numero} guardada correctamente.", icon="✅")
         anotar_si_es_equipo_nuevo(acta)
-        envio = enviar_encuesta(acta, acta.correo_cliente) if acta.correo_cliente else None
-        dialogo_guardado(acta, pdf, nombre_pdf, resultado.total_actas, resultado.ubicacion_pdf, envio)
+        dialogo_guardado(acta, pdf, nombre_pdf, resultado.total_actas, resultado.ubicacion_pdf)
 
 
 def guardar_correccion(acta: Acta) -> None:
