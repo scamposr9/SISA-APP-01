@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 
 # Versión visible al pie de la app. Además se muestra el commit de GitHub desplegado
 # (ver version_desplegada), que cambia solo con cada actualización.
-APP_VERSION = "0.26.1"
+APP_VERSION = "0.27.0"
 
 # El servidor (p. ej. Streamlit Cloud) corre en UTC; fechas y horas se toman en hora de Perú.
 ZONA_HORARIA = ZoneInfo("America/Lima")
@@ -46,6 +46,7 @@ SHAREPOINT_EQUIPOS = "Equipos.xlsx"  # catálogo para el autocompletado
 # Equipos con una serie que no está en Equipos.xlsx, para revisarlos y pasarlos a mano.
 # Lo crea la app con el primer equipo nuevo.
 SHAREPOINT_EQUIPOS_NUEVOS = "Equipos_nuevos.xlsx"
+SHAREPOINT_BORRADORES = "Borradores"  # acta a medio llenar de cada usuario
 # Protocolos de mantenimiento preventivo: checklist de «Acciones realizadas».
 SHAREPOINT_PROTOCOLOS = "Mantenimientos Preventivos.xlsx"
 # Repuestos: autocompletado de «Artículos empleados» (código -> descripción).

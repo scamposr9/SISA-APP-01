@@ -127,6 +127,20 @@ desarrolladores = ["correo1@sistemasanaliticos.com", "correo2@sistemasanaliticos
 
 Los demás usuarios ven solo el formulario. Sin inicio de sesión, las secciones se ven siempre.
 
+«Corregir un acta» solo aparece para los correos de `correctores`; mientras esa lista no
+exista, para los de `desarrolladores`:
+
+```toml
+[app]
+correctores = ["correo1@sistemasanaliticos.com", "ingeniero@sistemasanaliticos.com"]
+```
+
+### Borrador automático
+
+Mientras se llena un acta nueva, la app guarda un borrador (sin firmas) cada ~20 segundos en
+`Borradores/<cuenta>.json` dentro de la carpeta de actas, uno por usuario. Al volver a entrar con
+la misma cuenta, ofrece «Recuperar borrador» o «Descartar». El borrador se borra al guardar el acta.
+
 ### Inicio de sesión con Microsoft (opcional)
 
 Con una sección `[auth]` en los Secrets, la app pide iniciar sesión con Microsoft y solo deja

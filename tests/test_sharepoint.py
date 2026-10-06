@@ -423,3 +423,13 @@ def test_imagen_del_qr_es_un_png():
 
     png = imagen_qr("https://sisa-app.streamlit.app/?encuesta=2026-00051&t=" + "x" * 43)
     assert png.startswith(b"\x89PNG")
+
+
+def test_borrador_en_sharepoint_por_usuario(repo, sp, acta_completa):
+    from acta_app.borrador import a_json, desde_json
+
+    repo.guardar_borrador("scampos@sistemasanaliticos.com", a_json(acta_completa))
+    assert f"{CARPETA}/Borradores/scampos_sistemasanaliticos_com.json" in sp.archivos
+    assert desde_json(repo.leer_borrador("scampos@sistemasanaliticos.com")).acta.cliente == acta_completa.cliente
+    repo.borrar_borrador("scampos@sistemasanaliticos.com")
+    assert repo.leer_borrador("scampos@sistemasanaliticos.com") is None

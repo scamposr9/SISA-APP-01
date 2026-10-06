@@ -6,6 +6,7 @@ Estructura en la carpeta configurada (por defecto «16. Analisis de Datos/Actas�
     Equipos.xlsx      catálogo para el autocompletado (lo mantiene el equipo)
     PDF/              un PDF por acta y por revisión
     Firmas Actas/<N.°>/  cliente.png y representante.png de cada acta (para corregirla)
+    Borradores/       acta a medio llenar de cada usuario (se borra al guardarla)
 
 `RepositorioSharePoint` solo necesita un `AlmacenArchivos` (leer/escribir archivos con
 control de versión). `AlmacenGraph` lo implementa con Microsoft Graph usando la
@@ -105,6 +106,7 @@ class RepositorioSharePoint:
         self.ruta_excel = f"{self.carpeta}/{excel}"
         self.ruta_pdf = f"{self.carpeta}/{carpeta_pdf}"
         self.ruta_firmas = f"{self.carpeta}/{CARPETA_FIRMAS}"
+        self.ruta_borradores = f"{self.carpeta}/{config.SHAREPOINT_BORRADORES}"
         self.ruta_equipos = f"{self.carpeta}/{equipos}"
         self.ruta_equipos_nuevos = f"{self.carpeta}/{equipos_nuevos}"
         self.ruta_protocolos = f"{self.carpeta}/{protocolos}"
@@ -388,6 +390,20 @@ class RepositorioSharePoint:
             return False
         self._cache = None
         return True
+
+    # ---------- Borradores ----------
+    def _ruta_borrador(self, usuario: str) -> str:
+        return f"{self.ruta_borradores}/{_nombre_seguro(usuario)}.json"
+
+    def leer_borrador(self, usuario: str) -> bytes | None:
+        archivo = self.almacen.leer(self._ruta_borrador(usuario))
+        return archivo.datos if archivo else None
+
+    def guardar_borrador(self, usuario: str, datos: bytes) -> None:
+        self.almacen.escribir(self._ruta_borrador(usuario), datos)
+
+    def borrar_borrador(self, usuario: str) -> None:
+        self.almacen.eliminar(self._ruta_borrador(usuario))
 
     def _subir(self, ruta: str, datos: bytes) -> str:
         return self.almacen.escribir(ruta, datos) or self.almacen.enlace(ruta) or ""

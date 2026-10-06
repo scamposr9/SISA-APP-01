@@ -114,6 +114,14 @@ class RepositorioActas(Protocol):
         """Equipos_nuevos.xlsx (equipos fuera del catálogo, por revisar), si existe."""
         ...
 
+    def leer_borrador(self, usuario: str) -> bytes | None:
+        """Borrador del acta que `usuario` estaba llenando (JSON), si hay."""
+        ...
+
+    def guardar_borrador(self, usuario: str, datos: bytes) -> None: ...
+
+    def borrar_borrador(self, usuario: str) -> None: ...
+
     def registrar_equipo_nuevo(self, acta: Acta, registrado_por: str) -> bool:
         """Anota el equipo del acta en Equipos_nuevos.xlsx (lo crea si no existe).
         False si su serie ya estaba anotada."""

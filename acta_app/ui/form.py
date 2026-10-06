@@ -5,6 +5,7 @@ import hashlib
 import streamlit as st
 
 from acta_app import config
+from acta_app.borrador import Borrador
 from acta_app.catalogo import clave, limpiar
 from acta_app.models import Acta, ActividadChecklist, duracion, hoy, redondear_a_5_minutos
 from acta_app.ui.catalogo_ui import cargar_catalogo, cargar_ingenieros, cargar_protocolos, cargar_repuestos
@@ -53,6 +54,24 @@ def cargar_en_formulario(acta: Acta) -> None:
     limpiar_formulario()
     st.session_state[CORRECCION] = acta
     st.session_state[USAR_FIRMAS_ORIGINALES] = True
+    _precargar(acta)
+    # Checklist guardado: se conserva tal cual si no cambian marca ni modelo.
+    st.session_state[k("checklist_guardado")] = [c.texto for c in acta.checklist]
+
+
+def cargar_borrador(borrador: Borrador) -> None:
+    """Llena el formulario con el borrador recuperado (usar desde un callback). Las firmas
+    no se guardan en el borrador: se firma de nuevo."""
+    limpiar_formulario()
+    _precargar(borrador.acta)
+    st.session_state[k("chk_quitadas")] = list(borrador.quitadas)
+
+
+def actividades_quitadas() -> list[str]:
+    return list(st.session_state.get(k("chk_quitadas")) or [])
+
+
+def _precargar(acta: Acta) -> None:
     valores = {
         "acta_numero": acta.numero,
         "fecha": acta.fecha or hoy(),
@@ -80,8 +99,6 @@ def cargar_en_formulario(acta: Acta) -> None:
     ):
         precargar_lista(k(nombre), puntos)
     precargar_articulos(k("articulos"), acta.articulos)
-    # Checklist guardado: se conserva tal cual si no cambian marca ni modelo.
-    st.session_state[k("checklist_guardado")] = [c.texto for c in acta.checklist]
     for actividad in acta.checklist:
         st.session_state[_clave_actividad(actividad.texto)] = actividad.hecha
 
@@ -365,21 +382,19 @@ def formulario_acta() -> Acta:
 
 
 def _nombre_representante() -> str:
+    return selector_ingeniero("Nombre del representante", "nombre_representante")
+
+
+def selector_ingeniero(texto: str, nombre: str, placeholder: str = "Escribe para buscar tu nombre…") -> str:
     """Desplegable con los ingenieros de «Firmas Ingenieros/Nombres Ingenieria» (al escribir
     se filtran los nombres). Sin esa lista, se escribe a mano."""
     nombres = cargar_ingenieros()
     if not nombres:
-        return st.text_input(etiqueta("Nombre del representante"), key=k("nombre_representante")).strip()
-    actual = st.session_state.get(k("nombre_representante"))
+        return st.text_input(etiqueta(texto), key=k(nombre)).strip()
+    actual = st.session_state.get(k(nombre))
     if actual and actual not in nombres:  # acta anterior con un nombre que ya no está en la lista
         nombres = [actual, *nombres]
-    return st.selectbox(
-        etiqueta("Nombre del representante"),
-        nombres,
-        index=None,
-        key=k("nombre_representante"),
-        placeholder="Escribe para buscar tu nombre…",
-    ) or ""
+    return st.selectbox(etiqueta(texto), nombres, index=None, key=k(nombre), placeholder=placeholder) or ""
 
 
 def _firma_original(png: bytes | None, rotulo: str) -> bytes | None:
