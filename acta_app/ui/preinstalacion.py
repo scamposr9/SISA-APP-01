@@ -109,7 +109,7 @@ def secciones() -> Preinstalacion:
         p.accesos = lista_dinamica(k("accesos"), "Opción {n}")
 
     with seccion("pre_area", "Tipo de área"):
-        p.servicios = _marcar(pre.SERVICIOS_AREA, "servicio", columnas=2)
+        p.servicios = _marcar(pre.SERVICIOS_AREA, "servicio", columnas=3)
         if pre.SERVICIO_LABORATORIO in p.servicios:
             p.tipo_laboratorio = st.text_input("Tipo de laboratorio", key=k("tipo_laboratorio")).strip()
 
@@ -131,7 +131,7 @@ def secciones() -> Preinstalacion:
                  nota="(puedes agregar varios; cada uno con nombre, cargo y teléfono)"):
         p.contactos = _contactos()
 
-    with seccion("pre_observaciones", "Observaciones", obligatorio=False):
+    with seccion("pre_observaciones", "Observaciones"):
         p.observaciones = lista_dinamica(k("observaciones"), "Opción {n}")
 
     with seccion("pre_realizado", "Realizado por"):

@@ -1,15 +1,18 @@
-"""PDF del reporte de preinstalación, con el mismo estilo que el del acta.
+"""PDF del reporte de preinstalación.
 
-Las opciones marcadas aparecen con una casilla con X y solo se muestran las elegidas;
-la excepción son los complementos faltantes, que se listan todos (marcados o no), como en
-el formato en Word.
+El encabezado y los datos generales tienen el estilo del acta; desde «Condiciones Eléctricas»
+se replica la tabla del formato en Word (filas grises por apartado, columna de etiquetas a la
+izquierda y las mismas divisiones). Las opciones marcadas aparecen con una casilla con X y
+solo se muestran las elegidas; la excepción son los complementos faltantes, que se listan
+todos (marcados o no), como en el Word.
 """
 
 from __future__ import annotations
 
 import io
+from dataclasses import dataclass
 
-from reportlab.lib.colors import white
+from reportlab.lib.colors import HexColor
 
 from acta_app import config
 from acta_app.models import formatear_fecha
@@ -25,15 +28,16 @@ from acta_app.pdf.generator import (
     PAGE_W,
     RED,
     REGULAR,
-    _casilla,
+    Y_NUEVA_PAGINA,
     _Lienzo,
-    _lista,
 )
 from acta_app.preinstalacion import (
     COMPLEMENTOS,
     MEDIDAS,
     SERVICIO_LABORATORIO,
+    SERVICIOS_AREA,
     SUPERFICIES,
+    Contacto,
     Preinstalacion,
     imagen_toma,
 )
@@ -93,155 +97,198 @@ def _datos_generales(lz: _Lienzo, p: Preinstalacion) -> None:
     lz.y += row_h * 4 + 9
 
 
-def _titulo(lz: _Lienzo, texto: str, espacio: float = 18) -> None:
-    """Barra azul con el nombre del apartado (como las filas grises del Word)."""
-    lz.asegurar_espacio(espacio)
-    lz.rect(MARGIN_X, lz.y, CONTENT_W, 6.5, relleno=NAVY)
-    lz.fuente(BOLD, 9.5, white)
-    lz.texto(MARGIN_X + 2.5, lz.y + 4.6, texto.upper())
-    lz.y += 12
+
+# ---------- Tabla con la misma estructura que el formato en Word ----------
+GRIS_SECCION = HexColor("#D9D9D9")
+BORDE = HexColor("#808080")
+ANCHO_ETIQUETA = 38  # columna izquierda («Suministro Eléctrico», «Accesos», …)
+ANCHO_DATOS = CONTENT_W - ANCHO_ETIQUETA
+TAM, INTERLINEA, ALTO_MIN = 8.5, 4.0, 7.5
+LADO_CASILLA = 3.4
 
 
-def _etiqueta(lz: _Lienzo, texto: str) -> None:
-    lz.fuente(BOLD, 9.5, NAVY)
-    lz.texto(MARGIN_X, lz.y, texto)
+@dataclass
+class Celda:
+    ancho: float
+    texto: str = ""
+    negrita: bool = False
+    casilla: bool | None = None  # None: sin casilla; True/False: casilla marcada o vacía
 
 
-def _marcadas(lz: _Lienzo, titulo: str, opciones: list[str], x_inicio: float = 48) -> None:
-    """'Título:  [X] Opción  [X] Opción' (solo las marcadas; pasa a otra línea si no caben)."""
-    lz.asegurar_espacio(8)
-    _etiqueta(lz, titulo)
-    x = MARGIN_X + x_inicio
-    if not opciones:
-        lz.fuente(REGULAR, 9, INK)
-        lz.texto(x, lz.y, "—")
-    for opcion in opciones:
-        ancho = 6 + lz.c.stringWidth(opcion, REGULAR, 9) / 2.8346 + 6
-        if x + ancho > PAGE_W - MARGIN_X and x > MARGIN_X + x_inicio:
-            lz.y += 6.5
-            x = MARGIN_X + x_inicio
-        _casilla(lz, x, lz.y, marcada=True)
-        lz.fuente(REGULAR, 9, INK)
-        lz.texto(x + 6, lz.y, opcion)
-        x += ancho
-    lz.y += 8
+def _lineas(lz: _Lienzo, celda: Celda) -> list[str]:
+    lz.fuente(BOLD if celda.negrita else REGULAR, TAM, INK)
+    sangria = LADO_CASILLA + 1.5 if celda.casilla is not None else 0
+    return lz.partir(celda.texto, celda.ancho - 4 - sangria) if celda.texto else [""]
+
+
+def _alto(lz: _Lienzo, celdas: list[Celda]) -> float:
+    return max(ALTO_MIN, max(len(_lineas(lz, c)) for c in celdas) * INTERLINEA + 3.2)
+
+
+def _dibujar_celda(lz: _Lienzo, x: float, y: float, alto: float, celda: Celda, centrar_v: bool = False) -> None:
+    lz.rect(x, y, celda.ancho, alto, color=BORDE)
+    lineas = _lineas(lz, celda)
+    base = y + 4.6
+    if centrar_v:
+        base = y + (alto - len(lineas) * INTERLINEA) / 2 + 3
+    tx = x + 2
+    if celda.casilla is not None:
+        cy = base - 2.8
+        lz.rect(tx, cy, LADO_CASILLA, LADO_CASILLA, color=INK)
+        if celda.casilla:
+            lz.fuente(BOLD, 8, INK)
+            lz.texto(tx + LADO_CASILLA / 2, cy + 2.75, "X", align="center")
+        tx += LADO_CASILLA + 1.5
+    lz.fuente(BOLD if celda.negrita else REGULAR, TAM, INK)
+    for i, linea in enumerate(lineas):
+        lz.texto(tx, base + i * INTERLINEA, linea)
+
+
+def _espacio(lz: _Lienzo, alto: float) -> None:
+    if lz.y + alto > LIMITE_INFERIOR:
+        lz.nueva_pagina()
+
+
+def _seccion(lz: _Lienzo, titulo: str, siguiente: float = 10) -> None:
+    """Fila gris a todo el ancho (como «Condiciones Eléctricas» en el Word)."""
+    _espacio(lz, ALTO_MIN + siguiente)
+    lz.rect(MARGIN_X, lz.y, CONTENT_W, ALTO_MIN, relleno=GRIS_SECCION)
+    lz.rect(MARGIN_X, lz.y, CONTENT_W, ALTO_MIN, color=BORDE)
+    lz.fuente(BOLD, TAM, INK)
+    lz.texto(MARGIN_X + 2, lz.y + 4.9, titulo)
+    lz.y += ALTO_MIN
+
+
+def _fila(lz: _Lienzo, celdas: list[Celda], x: float = MARGIN_X) -> None:
+    alto = _alto(lz, celdas)
+    _espacio(lz, alto)
+    for celda in celdas:
+        _dibujar_celda(lz, x, lz.y, alto, celda)
+        x += celda.ancho
+    lz.y += alto
+
+
+def _grupo(lz: _Lienzo, etiqueta: str, filas: list[list[Celda]], negrita: bool = True) -> None:
+    """Etiqueta a la izquierda que abarca varias filas (p. ej. «Accesos»). Si no cabe
+    entero en la página, sigue en la siguiente repitiendo la etiqueta."""
+    altos = [_alto(lz, f) for f in filas]
+    if lz.y + sum(altos) > LIMITE_INFERIOR and sum(altos) <= LIMITE_INFERIOR - Y_NUEVA_PAGINA:
+        lz.nueva_pagina()
+    inicio = lz.y
+    for celdas, alto in zip(filas, altos):
+        if lz.y + alto > LIMITE_INFERIOR:
+            _dibujar_celda(lz, MARGIN_X, inicio, lz.y - inicio, Celda(ANCHO_ETIQUETA, etiqueta, negrita), True)
+            lz.nueva_pagina()
+            inicio = lz.y
+        x = MARGIN_X + ANCHO_ETIQUETA
+        for celda in celdas:
+            _dibujar_celda(lz, x, lz.y, alto, celda)
+            x += celda.ancho
+        lz.y += alto
+    _dibujar_celda(lz, MARGIN_X, inicio, lz.y - inicio, Celda(ANCHO_ETIQUETA, etiqueta, negrita), True)
+
+
+def _opciones(marcadas: list[str], n_celdas: int, ancho: float) -> list[Celda]:
+    """Celdas de una fila de opciones: solo las marcadas (con X), de izquierda a derecha;
+    las celdas sobrantes quedan vacías para conservar las divisiones del formato."""
+    celdas = [Celda(ancho, o, casilla=True) for o in marcadas[:n_celdas]]
+    return celdas + [Celda(ancho) for _ in range(n_celdas - len(celdas))]
 
 
 def _condiciones_electricas(lz: _Lienzo, p: Preinstalacion) -> None:
-    _titulo(lz, "Condiciones eléctricas", espacio=40)
-    dedicado = [] if p.punto_dedicado is None else ["Sí" if p.punto_dedicado else "No"]
-    _marcadas(lz, "¿Es punto dedicado?", dedicado)
+    _seccion(lz, "Condiciones Eléctricas", siguiente=40)
+    tercio = ANCHO_DATOS / 3
+    dedicado = [] if p.punto_dedicado is None else ["SI" if p.punto_dedicado else "NO"]
+    _fila(lz, [Celda(ANCHO_ETIQUETA, "Suministro Eléctrico"), Celda(tercio, "Es punto dedicado:"),
+               *_opciones(dedicado, 2, tercio)])
 
-    # Tipo de toma: solo los dibujos marcados, cada uno con su casilla con X.
-    lado, paso = 12, 26
-    lz.asegurar_espacio(lado + 10)
-    _etiqueta(lz, "Tipo de toma eléctrica:")
-    x0 = MARGIN_X + 48
-    x, y = x0, lz.y - 4
-    for tipo in p.tipos_toma:
-        if x + paso > PAGE_W - MARGIN_X:
-            x, y = x0, y + lado + 4
-        _casilla(lz, x, y + lado / 2 + 2, marcada=True)
-        lz.imagen(imagen_toma(tipo), x + 5.5, y, lado, lado)
-        x += paso
-    lz.y = y + lado + 8
+    # Tipo de toma: los dibujos marcados, cada uno con su casilla con X.
+    lado, paso, por_fila = 11, 24, 6
+    filas = max(1, -(-len(p.tipos_toma) // por_fila))
+    alto = filas * (lado + 4) + 5
+    _espacio(lz, alto)
+    _dibujar_celda(lz, MARGIN_X, lz.y, alto, Celda(ANCHO_ETIQUETA, "Tipo de Toma Eléctrica"))
+    lz.rect(MARGIN_X + ANCHO_ETIQUETA, lz.y, ANCHO_DATOS, alto, color=BORDE)
+    for i, tipo in enumerate(p.tipos_toma):
+        x = MARGIN_X + ANCHO_ETIQUETA + 3 + paso * (i % por_fila)
+        y = lz.y + 3 + (lado + 4) * (i // por_fila)
+        lz.rect(x, y + lado / 2 - LADO_CASILLA / 2, LADO_CASILLA, LADO_CASILLA, color=INK)
+        lz.fuente(BOLD, 8, INK)
+        lz.texto(x + LADO_CASILLA / 2, y + lado / 2 + 1.05, "X", align="center")
+        lz.imagen(imagen_toma(tipo), x + LADO_CASILLA + 1.5, y, lado, lado)
+        lz.fuente(REGULAR, 6.5, GRIS_ETIQUETA)
+        lz.texto(x + LADO_CASILLA + 1.5 + lado / 2, y + lado + 2.6, tipo, align="center")
+    lz.y += alto
 
 
 def _detalles(lz: _Lienzo, p: Preinstalacion) -> None:
-    _titulo(lz, "Detalles")
-    _marcadas(lz, "Traslado del equipo:", [p.traslado_texto(t) for t in p.traslado])
-    _lista(lz, "Accesos", p.accesos)
+    _seccion(lz, "Detalles")
+    cuarto = ANCHO_DATOS / 4
+    _fila(lz, [Celda(ANCHO_ETIQUETA, "Traslado del Equipo", negrita=True),
+               *_opciones([p.traslado_texto(t) for t in p.traslado], 4, cuarto)])
+    _grupo(lz, "Accesos", [[Celda(ANCHO_DATOS, a)] for a in p.accesos] or [[Celda(ANCHO_DATOS)]])
 
 
 def _tipo_area(lz: _Lienzo, p: Preinstalacion) -> None:
-    _titulo(lz, "Tipo de área")
-    servicios = [
-        f"{s}: {p.tipo_laboratorio}" if s == SERVICIO_LABORATORIO and p.tipo_laboratorio else s
-        for s in p.servicios
-    ]
-    _marcadas(lz, "Servicio:", servicios, x_inicio=22)
+    _seccion(lz, "Tipo de Área")
+    n, ancho = len(SERVICIOS_AREA), 31
+    laboratorio = SERVICIO_LABORATORIO in p.servicios
+    _fila(lz, [Celda(ANCHO_ETIQUETA, "Servicio", negrita=True), *_opciones(p.servicios, n, ancho),
+               Celda(ANCHO_DATOS - n * ancho, f"Tipo de Laboratorio: {p.tipo_laboratorio}" if laboratorio else "")])
 
+    def valor(superficie: str, medida: str) -> str:
+        v = p.medida(superficie, medida)
+        return f"{medida}: {v:g} cm" if v is not None else f"{medida}:"
 
-def _condiciones_area(lz: _Lienzo, p: Preinstalacion) -> None:
-    """Tabla Medida × (Mesa de trabajo, Piso), en centímetros."""
-    _titulo(lz, "Condiciones del área", espacio=40)
-    col_w, fila_h = CONTENT_W / 3, 7
-    xs = [MARGIN_X + col_w * i for i in range(3)]
-    lz.rect(MARGIN_X, lz.y, CONTENT_W, fila_h, relleno=NAVY)
-    lz.fuente(BOLD, 9, white)
-    for x, texto in zip(xs, ["Medida", *SUPERFICIES]):
-        lz.texto(x + col_w / 2, lz.y + 4.8, texto, align="center")
-    lz.y += fila_h
-    for medida in MEDIDAS:
-        for x in xs:
-            lz.rect(x, lz.y, col_w, fila_h)
-        lz.fuente(REGULAR, 9, GRIS_ETIQUETA)
-        lz.texto(xs[0] + col_w / 2, lz.y + 4.8, medida, align="center")
-        lz.fuente(REGULAR, 9.5, INK)
-        for x, superficie in zip(xs[1:], SUPERFICIES):
-            valor = p.medida(superficie, medida)
-            lz.texto(x + col_w / 2, lz.y + 4.8, f"{valor:g} cm" if valor is not None else "—", align="center")
-        lz.y += fila_h
-    lz.y += 8
+    mitad = ANCHO_DATOS / 2
+    _grupo(lz, "Condiciones del área", [
+        [Celda(mitad, s) for s in SUPERFICIES],
+        *[[Celda(mitad, valor(s, m)) for s in SUPERFICIES] for m in MEDIDAS],
+    ])
 
 
 def _complementos(lz: _Lienzo, p: Preinstalacion) -> None:
     """Todos los complementos, con X en los que faltan (3 por fila, como en el Word)."""
-    _titulo(lz, "Complementos faltantes")
-    col_w = CONTENT_W / 3
-    for i, complemento in enumerate(COMPLEMENTOS):
-        x = MARGIN_X + col_w * (i % 3)
-        _casilla(lz, x, lz.y, marcada=complemento in p.complementos_faltantes)
-        lz.fuente(REGULAR, 9, INK)
-        lz.texto(x + 6, lz.y, complemento)
-        if i % 3 == 2:
-            lz.y += 7
-    lz.y += 3
-    lz.asegurar_espacio(8)
-    _etiqueta(lz, "Temperatura del área (°C):")
-    lz.fuente(REGULAR, 9, INK)
-    lineas = lz.partir(p.temperatura or "—", CONTENT_W - 48)
-    for linea in lineas:
-        lz.texto(MARGIN_X + 48, lz.y, linea)
-        lz.y += 5
-    lz.y += 5
+    _seccion(lz, "Complementos Faltantes", siguiente=20)
+    tercio = ANCHO_DATOS / 3
+    filas = [[Celda(tercio, c, casilla=c in p.complementos_faltantes) for c in COMPLEMENTOS[i:i + 3]]
+             for i in range(0, len(COMPLEMENTOS), 3)]
+    _grupo(lz, "Condiciones Adicionales", filas)
+    _fila(lz, [Celda(ANCHO_ETIQUETA, "Temperatura (°C)", negrita=True),
+               Celda(ANCHO_DATOS, f"Temperatura del Área: {p.temperatura}")])
 
 
 def _contactos(lz: _Lienzo, p: Preinstalacion) -> None:
-    _titulo(lz, "Personal de contacto", espacio=30)
-    anchos = [CONTENT_W * 0.32, CONTENT_W * 0.43, CONTENT_W * 0.25]
-    xs = [MARGIN_X, MARGIN_X + anchos[0], MARGIN_X + anchos[0] + anchos[1]]
-    header_h, interlinea = 7, 4.5
+    _seccion(lz, "Personal de Contacto")
+    anchos = (CONTENT_W * 0.32, CONTENT_W * 0.33, CONTENT_W * 0.35)
+    for c in p.contactos_usados or [Contacto()]:
+        _fila(lz, [Celda(anchos[0], f"Nombre: {c.nombre}"), Celda(anchos[1], f"Cargo: {c.cargo}"),
+                   Celda(anchos[2], f"Teléfono de contacto: {c.telefono}")])
 
-    def encabezado() -> None:
-        lz.rect(MARGIN_X, lz.y, CONTENT_W, header_h, relleno=NAVY)
-        lz.fuente(BOLD, 9, white)
-        for x, titulo in zip(xs, ["Nombre", "Cargo", "Teléfono de contacto"]):
-            lz.texto(x + 2, lz.y + 4.8, titulo)
-        lz.y += header_h
 
-    encabezado()
-    for c in p.contactos_usados or []:
-        lz.fuente(REGULAR, 9, INK)
-        columnas = [lz.partir(v or "—", w - 4) for v, w in zip((c.nombre, c.cargo, c.telefono), anchos)]
-        alto = max(len(col) for col in columnas) * interlinea + 2.5
-        if lz.y + alto > LIMITE_INFERIOR:
-            lz.nueva_pagina()
-            encabezado()
-        for x, w in zip(xs, anchos):
-            lz.rect(x, lz.y, w, alto)
-        lz.fuente(REGULAR, 9, INK)
-        for x, lineas in zip(xs, columnas):
-            for i, linea in enumerate(lineas):
-                lz.texto(x + 2, lz.y + 5 + i * interlinea, linea)
+def _observaciones(lz: _Lienzo, p: Preinstalacion) -> None:
+    """Un recuadro a todo el ancho: «Observaciones:» y debajo cada observación."""
+    lz.fuente(REGULAR, TAM, INK)
+    lineas = ["Observaciones:"] + [l for o in p.observaciones for l in lz.partir(o, CONTENT_W - 4)]
+    i = 0
+    while i < len(lineas):
+        _espacio(lz, ALTO_MIN + INTERLINEA)
+        caben = max(1, int((LIMITE_INFERIOR - lz.y - 3.2) // INTERLINEA))
+        tramo = lineas[i:i + caben]
+        alto = len(tramo) * INTERLINEA + 3.2
+        lz.rect(MARGIN_X, lz.y, CONTENT_W, alto, color=BORDE)
+        lz.fuente(REGULAR, TAM, INK)
+        for j, linea in enumerate(tramo):
+            lz.texto(MARGIN_X + 2, lz.y + 4.4 + j * INTERLINEA, linea)
         lz.y += alto
-    lz.y += 8
+        i += len(tramo)
 
 
 def _realizado_por(lz: _Lienzo, p: Preinstalacion) -> None:
     lz.asegurar_espacio(12)
-    lz.y += 4
-    _etiqueta(lz, "Realizado por:")
+    lz.y += 8
+    lz.fuente(BOLD, 9.5, NAVY)
+    lz.texto(MARGIN_X, lz.y, "Realizado por:")
     lz.fuente(REGULAR, 9.5, INK)
     lz.texto(MARGIN_X + 26, lz.y, f"{p.realizado_por or '—'} · {config.EMPRESA}")
 
@@ -254,10 +301,9 @@ def generar_pdf(p: Preinstalacion) -> bytes:
     _condiciones_electricas(lz, p)
     _detalles(lz, p)
     _tipo_area(lz, p)
-    _condiciones_area(lz, p)
     _complementos(lz, p)
     _contactos(lz, p)
-    _lista(lz, "Observaciones", p.observaciones)
+    _observaciones(lz, p)
     _realizado_por(lz, p)
     lz.cerrar()
     return buffer.getvalue()

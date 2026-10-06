@@ -31,7 +31,7 @@ TRASLADO_ESTIBADORES = "Estibadores"
 TRASLADO_NO_REQUIERE = "No requiere"
 TRASLADOS = ["Estoca", "Apilador", TRASLADO_ESTIBADORES, TRASLADO_NO_REQUIERE]
 SERVICIO_LABORATORIO = "Laboratorio"
-SERVICIOS_AREA = ["Banco de Sangre", SERVICIO_LABORATORIO]
+SERVICIOS_AREA = ["Banco de Sangre", "Banco de Órganos", SERVICIO_LABORATORIO]
 COMPLEMENTOS = ["Aire Acondicionado", "Lavaderos", "Punto de Agua", "Punto de Desagüe", "Puntos de Red", "Calefacción"]
 MEDIDAS = ["Largo", "Ancho", "Altura"]
 SUPERFICIES = ["Mesa de Trabajo", "Piso"]
@@ -168,6 +168,8 @@ def validar(p: Preinstalacion) -> list[str]:
     for n, c in enumerate(p.contactos_usados, start=1):
         if c.faltantes:
             errores.append(f"Contacto {n}: {', '.join(c.faltantes)}")
+    if not p.observaciones:
+        errores.append("Observaciones")
     if not p.realizado_por:
         errores.append("Realizado por")
     return errores

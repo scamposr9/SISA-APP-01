@@ -82,3 +82,11 @@ def test_contacto_empezado_exige_los_3_datos(reporte):
 def test_estibadores_marcado_exige_cantidad(reporte):
     reporte.estibadores = None
     assert pre.validar(reporte) == ["Cantidad de estibadores (número entero)"]
+
+
+def test_observaciones_obligatorias_y_banco_de_organos(reporte):
+    reporte.observaciones = []
+    assert pre.validar(reporte) == ["Observaciones"]
+    assert pre.SERVICIOS_AREA == ["Banco de Sangre", "Banco de Órganos", "Laboratorio"]
+    reporte.observaciones, reporte.servicios = ["ok"], ["Banco de Órganos"]
+    assert pre.validar(reporte) == [] and generar_pdf(reporte).startswith(b"%PDF")
