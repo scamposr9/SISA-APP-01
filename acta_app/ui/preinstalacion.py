@@ -166,7 +166,8 @@ def _fotos() -> list[FotoAnexo]:
             st.session_state[k("foto_aviso")] = "No se pudo leer la imagen. Prueba con otra foto (JPG o PNG)."
             return
         fotos.append(FotoAnexo(datos, texto))
-        st.session_state[k("foto_version")] = version + 1  # deja la cámara y el texto en blanco
+        st.session_state[k("foto_version")] = version + 1  # deja la foto y el texto en blanco
+        st.session_state[k("foto_origen")] = None  # y no vuelve a abrir la cámara por su cuenta
 
     def quitar(i: int) -> None:
         fotos.pop(i)
@@ -179,23 +180,28 @@ def _fotos() -> list[FotoAnexo]:
             c_quitar.button("×", key=k(f"quitar_foto_{i}_{len(fotos)}"), help="Quitar foto",
                             on_click=quitar, args=(i,))
         st.markdown(f"**Agregar foto {len(fotos) + 1}**")
-        origen = st.radio("Origen de la foto", [ORIGEN_CAMARA, ORIGEN_ARCHIVO], horizontal=True,
+        # Nada se activa hasta que el ingeniero elige cómo agregar la foto.
+        origen = st.radio("Origen de la foto", [ORIGEN_CAMARA, ORIGEN_ARCHIVO], index=None, horizontal=True,
                           key=k("foto_origen"), label_visibility="collapsed")
+        datos_foto = None
         if origen == ORIGEN_CAMARA:
             datos_foto = camara_trasera(key=clave_foto + "_camara")
-        else:
+        elif origen == ORIGEN_ARCHIVO:
             subida = st.file_uploader("Foto", type=["jpg", "jpeg", "png", "webp"], key=clave_foto + "_galeria",
                                       label_visibility="collapsed")
             datos_foto = subida.getvalue() if subida is not None else None
+        else:
+            st.caption("Elige «Cámara trasera» para tomar la foto o «Subir desde la galería».")
         st.session_state[clave_datos] = datos_foto
+        # La descripción y el botón aparecen recién cuando ya hay una foto.
         if datos_foto is not None:
             st.image(datos_foto, width=260, caption="Vista previa")
-        st.text_area("¿Qué muestra esta foto?", key=clave_texto, height=68,
-                     placeholder="Ej: Tablero eléctrico del área donde irá el equipo")
-        if aviso := st.session_state.pop(k("foto_aviso"), None):
-            st.warning(aviso, icon="⚠️")
-        st.button(f"Agregar foto {len(fotos) + 1}", key=k(f"agregar_foto_{version}"), on_click=agregar,
-                  disabled=datos_foto is None, icon=":material/add_a_photo:")
+            st.text_area("¿Qué muestra esta foto?", key=clave_texto, height=68,
+                         placeholder="Ej: Tablero eléctrico del área donde irá el equipo")
+            if aviso := st.session_state.pop(k("foto_aviso"), None):
+                st.warning(aviso, icon="⚠️")
+            st.button(f"Agregar foto {len(fotos) + 1}", key=k(f"agregar_foto_{version}"), on_click=agregar,
+                      icon=":material/add_a_photo:")
     return list(fotos)
 
 
