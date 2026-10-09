@@ -129,6 +129,7 @@ class Preinstalacion:
     firma_cliente_png: bytes | None = field(default=None, repr=False)
     firma_representante_png: bytes | None = field(default=None, repr=False)
     fotos: list[FotoAnexo] = field(default_factory=list, repr=False)
+    foto_sin_agregar: bool = field(default=False, repr=False)  # tomada en la app pero sin describir
     fecha_registro: datetime | None = None
     registrado_por: str = ""  # cuenta con la que se inició sesión
 
@@ -182,6 +183,8 @@ def validar(p: Preinstalacion) -> list[str]:
     ) if not valor]
     if any(not f.descripcion.strip() for f in p.fotos):
         errores.append("Descripción de cada foto")
+    if p.foto_sin_agregar:
+        errores.append("Anexo: hay una foto tomada sin describir (escribe qué muestra o presiona «Descartar esta foto»)")
     return errores
 
 

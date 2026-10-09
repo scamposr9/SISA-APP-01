@@ -137,16 +137,19 @@ def secciones() -> Preinstalacion:
     with seccion("pre_observaciones", "Observaciones"):
         p.observaciones = lista_dinamica(k("observaciones"), "Opción {n}")
 
-    p.fotos = _fotos()
+    p.fotos, p.foto_sin_agregar = _fotos()
     return p
 
 
 ORIGEN_CAMARA, ORIGEN_ARCHIVO = "Cámara trasera", "Subir desde la galería"
 
 
-def _fotos() -> list[FotoAnexo]:
+def _fotos() -> tuple[list[FotoAnexo], bool]:
     """«Fotos o anexos» (opcional): se agregan de una en una, cada una con lo que muestra.
-    Se guardan en Preinstalaciones/Fotos Preinstalaciones/<N.°>/ y van al final del PDF."""
+    Se guardan en Preinstalaciones/Fotos Preinstalaciones/<N.°>/ y van al final del PDF.
+
+    Devuelve (fotos, hay una foto tomada sin describir). Una foto ya tomada y descrita pero
+    sin «Agregar foto» también se incluye: así no se pierde si se guarda directamente."""
     fotos: list[FotoAnexo] = st.session_state.setdefault(k("fotos"), [])
     version = st.session_state.setdefault(k("foto_version"), 0)
     clave_foto, clave_texto = k(f"foto_{version}"), k(f"foto_texto_{version}")
@@ -168,6 +171,10 @@ def _fotos() -> list[FotoAnexo]:
         fotos.append(FotoAnexo(datos, texto))
         st.session_state[k("foto_version")] = version + 1  # deja la foto y el texto en blanco
         st.session_state[k("foto_origen")] = None  # y no vuelve a abrir la cámara por su cuenta
+
+    def descartar() -> None:
+        st.session_state[k("foto_version")] = version + 1
+        st.session_state[k("foto_origen")] = None
 
     def quitar(i: int) -> None:
         fotos.pop(i)
@@ -194,14 +201,29 @@ def _fotos() -> list[FotoAnexo]:
             st.caption("Elige «Cámara trasera» para tomar la foto o «Subir desde la galería».")
         st.session_state[clave_datos] = datos_foto
         # La descripción y el botón aparecen recién cuando ya hay una foto.
+        pendiente: FotoAnexo | None = None
+        sin_describir = False
         if datos_foto is not None:
             st.image(datos_foto, width=260, caption="Vista previa")
+            st.caption(f":orange[Esta foto aún no está en el anexo: escribe qué muestra y presiona "
+                       f"«Agregar foto {len(fotos) + 1}».]")
             st.text_area("¿Qué muestra esta foto?", key=clave_texto, height=68,
                          placeholder="Ej: Tablero eléctrico del área donde irá el equipo")
             if aviso := st.session_state.pop(k("foto_aviso"), None):
                 st.warning(aviso, icon="⚠️")
-            st.button(f"Agregar foto {len(fotos) + 1}", key=k(f"agregar_foto_{version}"), on_click=agregar,
-                      icon=":material/add_a_photo:")
-    return list(fotos)
+            c_agregar, c_descartar = st.columns(2)
+            c_agregar.button(f"Agregar foto {len(fotos) + 1}", key=k(f"agregar_foto_{version}"), on_click=agregar,
+                             icon=":material/add_a_photo:", type="primary", width="stretch")
+            c_descartar.button("Descartar esta foto", key=k(f"descartar_foto_{version}"), on_click=descartar,
+                               width="stretch")
+            texto = (st.session_state.get(clave_texto) or "").strip()
+            if texto:
+                try:
+                    pendiente = FotoAnexo(pre.comprimir_foto(datos_foto), texto)
+                except Exception:
+                    sin_describir = True
+            else:
+                sin_describir = True
+    return list(fotos) + ([pendiente] if pendiente else []), sin_describir
 
 
