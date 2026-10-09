@@ -11,8 +11,7 @@ import streamlit as st
 
 from acta_app import preinstalacion as pre
 from acta_app.catalogo import limpiar
-from acta_app.preinstalacion import Contacto, Preinstalacion
-from acta_app.ui.catalogo_ui import cargar_ingenieros
+from acta_app.preinstalacion import Contacto, FotoAnexo, Preinstalacion
 from acta_app.ui.components import etiqueta, lista_dinamica, precargar_lista, seccion
 
 
@@ -137,15 +136,60 @@ def secciones() -> Preinstalacion:
     with seccion("pre_observaciones", "Observaciones"):
         p.observaciones = lista_dinamica(k("observaciones"), "Opción {n}")
 
-    with seccion("pre_realizado", "Realizado por"):
-        nombres = cargar_ingenieros()
-        if nombres:
-            p.realizado_por = st.selectbox("Realizado por", nombres, index=None, key=k("realizado_por"),
-                                           placeholder="Escribe para buscar tu nombre…",
-                                           label_visibility="collapsed") or ""
-        else:
-            p.realizado_por = st.text_input("Realizado por", key=k("realizado_por"),
-                                            label_visibility="collapsed").strip()
+    p.fotos = _fotos()
     return p
+
+
+ORIGEN_CAMARA, ORIGEN_ARCHIVO = "Tomar foto con la cámara", "Elegir de la galería o archivos"
+
+
+def _fotos() -> list[FotoAnexo]:
+    """«Fotos o anexos» (opcional): se agregan de una en una, cada una con lo que muestra.
+    Se guardan en Preinstalaciones/Fotos Preinstalaciones/<N.°>/ y van al final del PDF."""
+    fotos: list[FotoAnexo] = st.session_state.setdefault(k("fotos"), [])
+    version = st.session_state.setdefault(k("foto_version"), 0)
+    clave_foto, clave_texto = k(f"foto_{version}"), k(f"foto_texto_{version}")
+
+    def agregar() -> None:
+        archivo = st.session_state.get(clave_foto)
+        texto = (st.session_state.get(clave_texto) or "").strip()
+        if archivo is None:
+            return
+        if not texto:
+            st.session_state[k("foto_aviso")] = "Escribe qué muestra la foto antes de agregarla."
+            return
+        try:
+            datos = pre.comprimir_foto(archivo.getvalue())
+        except Exception:
+            st.session_state[k("foto_aviso")] = "No se pudo leer la imagen. Prueba con otra foto (JPG o PNG)."
+            return
+        fotos.append(FotoAnexo(datos, texto))
+        st.session_state[k("foto_version")] = version + 1  # deja la cámara y el texto en blanco
+
+    def quitar(i: int) -> None:
+        fotos.pop(i)
+
+    with seccion("pre_fotos", "Fotos o anexos", obligatorio=False, nota="(opcional)"):
+        for i, foto in enumerate(fotos):
+            c_img, c_txt, c_quitar = st.columns([2, 5, 0.6], vertical_alignment="center")
+            c_img.image(foto.datos, width="stretch")
+            c_txt.markdown(f"**Foto {i + 1}:** {foto.descripcion}")
+            c_quitar.button("×", key=k(f"quitar_foto_{i}_{len(fotos)}"), help="Quitar foto",
+                            on_click=quitar, args=(i,))
+        st.markdown(f"**Agregar foto {len(fotos) + 1}**")
+        origen = st.radio("Origen de la foto", [ORIGEN_CAMARA, ORIGEN_ARCHIVO], horizontal=True,
+                          key=k("foto_origen"), label_visibility="collapsed")
+        if origen == ORIGEN_CAMARA:
+            archivo = st.camera_input("Foto", key=clave_foto, label_visibility="collapsed")
+        else:
+            archivo = st.file_uploader("Foto", type=["jpg", "jpeg", "png", "webp"], key=clave_foto,
+                                       label_visibility="collapsed")
+        st.text_area("¿Qué muestra esta foto?", key=clave_texto, height=68,
+                     placeholder="Ej: Tablero eléctrico del área donde irá el equipo")
+        if aviso := st.session_state.pop(k("foto_aviso"), None):
+            st.warning(aviso, icon="⚠️")
+        st.button(f"Agregar foto {len(fotos) + 1}", key=k(f"agregar_foto_{version}"), on_click=agregar,
+                  disabled=archivo is None, icon=":material/add_a_photo:")
+    return list(fotos)
 
 

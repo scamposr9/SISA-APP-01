@@ -346,6 +346,7 @@ def formulario_acta() -> Acta:
     # Presite: en lugar de los apartados del acta, los del reporte de preinstalación.
     if acta.tipo_servicio == config.TIPO_SERVICIO_PRESITE and original is None:
         acta.preinstalacion = secciones_preinstalacion()
+        _conformidad(acta, None)  # mismas firmas que el acta (se guardan en Firmas Actas/<N.°>/)
         return acta
 
     # ---------- Antecedentes ----------
@@ -412,7 +413,12 @@ def formulario_acta() -> Acta:
             k("observaciones"), "Ej: Se recomienda cambiar el filtro en la próxima visita..."
         )
 
-    # ---------- Conformidad (firmas) ----------
+    _conformidad(acta, original)
+    return acta
+
+
+def _conformidad(acta: Acta, original: Acta | None) -> None:
+    """Firmas del cliente y del representante (trazo en pantalla o foto de la firma/sello)."""
     with seccion("firmas", "Conformidad"):
         conservar = original is not None and st.checkbox(
             "Conservar las firmas del acta original",
@@ -432,8 +438,6 @@ def formulario_acta() -> Acta:
             else:
                 acta.firma_representante_png = firma_o_camara(k("firma_representante"), config.EMPRESA)
             acta.nombre_representante = _nombre_representante()
-
-    return acta
 
 
 def _nombre_representante() -> str:

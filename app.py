@@ -134,6 +134,8 @@ def preinstalacion_de_acta(acta: Acta) -> Preinstalacion:
     p = acta.preinstalacion
     p.numero, p.fecha, p.cliente, p.ubicacion = acta.numero, acta.fecha, acta.cliente, acta.ubicacion
     p.equipo, p.marca, p.modelo, p.numero_serie = acta.equipo, acta.marca, acta.modelo, acta.numero_serie
+    p.nombre_cliente, p.realizado_por = acta.nombre_cliente, acta.nombre_representante
+    p.firma_cliente_png, p.firma_representante_png = acta.firma_cliente_png, acta.firma_representante_png
     return p
 
 

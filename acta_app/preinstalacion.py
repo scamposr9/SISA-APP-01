@@ -48,6 +48,31 @@ def imagen_toma(tipo: str) -> bytes:
 
 
 @dataclass
+class FotoAnexo:
+    """Foto del trabajo (JPG ya comprimido) con lo que describe, escrito por el ingeniero."""
+
+    datos: bytes
+    descripcion: str
+
+
+def comprimir_foto(datos: bytes, lado_maximo: int = 1600, calidad: int = 82) -> bytes:
+    """Foto del celular -> JPG liviano, derecho (según EXIF) y de 1600 px como máximo."""
+    from PIL import Image, ImageOps
+
+    imagen = ImageOps.exif_transpose(Image.open(io.BytesIO(datos))).convert("RGB")
+    imagen.thumbnail((lado_maximo, lado_maximo))
+    salida = io.BytesIO()
+    imagen.save(salida, format="JPEG", quality=calidad, optimize=True)
+    return salida.getvalue()
+
+
+def nombre_archivo_foto(n: int, descripcion: str) -> str:
+    """'Foto 01 - Tablero eléctrico del área.jpg' (sin caracteres que SharePoint no admite)."""
+    texto = "".join(ch for ch in descripcion if ch not in '\\/:*?"<>|#%{}~&').strip()[:60].rstrip(" .")
+    return f"Foto {n:02d}" + (f" - {texto}" if texto else "") + ".jpg"
+
+
+@dataclass
 class Contacto:
     nombre: str = ""
     cargo: str = ""
@@ -97,7 +122,13 @@ class Preinstalacion:
     contactos: list[Contacto] = field(default_factory=list)
     observaciones: list[str] = field(default_factory=list)
 
-    realizado_por: str = ""
+    realizado_por: str = ""  # nombre del representante de Sistemas Analíticos (firma)
+
+    # Conformidad (como en el acta) y fotos del trabajo (opcionales).
+    nombre_cliente: str = ""
+    firma_cliente_png: bytes | None = field(default=None, repr=False)
+    firma_representante_png: bytes | None = field(default=None, repr=False)
+    fotos: list[FotoAnexo] = field(default_factory=list, repr=False)
     fecha_registro: datetime | None = None
     registrado_por: str = ""  # cuenta con la que se inició sesión
 
@@ -144,8 +175,13 @@ def validar(p: Preinstalacion) -> list[str]:
             errores.append(f"Contacto {n}: {', '.join(c.faltantes)}")
     if not p.observaciones:
         errores.append("Observaciones")
-    if not p.realizado_por:
-        errores.append("Realizado por")
+    errores += [nombre for nombre, valor in (
+        ("Firma del cliente", p.firma_cliente_png), ("Nombre del cliente", p.nombre_cliente),
+        ("Firma de Sistemas Analíticos", p.firma_representante_png),
+        ("Nombre del representante de Sistemas Analíticos", p.realizado_por),
+    ) if not valor]
+    if any(not f.descripcion.strip() for f in p.fotos):
+        errores.append("Descripción de cada foto")
     return errores
 
 
@@ -182,6 +218,8 @@ _COLUMNAS: list[tuple[str, int]] = [
     ("Temperatura del área", 22),
     ("Contacto {n} - Nombre", 22), ("Contacto {n} - Cargo", 26), ("Contacto {n} - Teléfono", 16),
     ("Observación {n}", 40),
+    ("Nombre Cliente", 24), ("Firma Cliente", 12), ("Firma Sistemas Analíticos", 12),
+    ("Fotos (anexo)", 10), ("Carpeta de fotos", 28),
     ("Realizado por", 26), ("Registrado por", 30), ("Fecha de registro", 20), (COLUMNA_PDF, 28),
 ]
 _GRUPOS = {  # prefijo de columna repetida -> nombres de sus subcolumnas
@@ -191,7 +229,7 @@ _GRUPOS = {  # prefijo de columna repetida -> nombres de sus subcolumnas
 }
 
 
-def fila(p: Preinstalacion, nombre_pdf: str = "", enlace_pdf: str = "") -> dict[str, object]:
+def fila(p: Preinstalacion, nombre_pdf: str = "", enlace_pdf: str = "", enlace_fotos: str = "") -> dict[str, object]:
     """Encabezado -> valor de la fila del reporte."""
     v: dict[str, object] = {
         COLUMNA_NUMERO: p.numero, "Fecha": p.fecha, "Cliente": p.cliente, "Ubicación": p.ubicacion,
@@ -202,6 +240,11 @@ def fila(p: Preinstalacion, nombre_pdf: str = "", enlace_pdf: str = "") -> dict[
         "Servicio": ", ".join(p.servicios),
         "Tipo de laboratorio": p.tipo_laboratorio if SERVICIO_LABORATORIO in p.servicios else "",
         "Temperatura del área": p.temperatura,
+        "Nombre Cliente": p.nombre_cliente,
+        "Firma Cliente": "Firmado" if p.firma_cliente_png else "Pendiente",
+        "Firma Sistemas Analíticos": "Firmado" if p.firma_representante_png else "Pendiente",
+        "Fotos (anexo)": len(p.fotos),
+        "Carpeta de fotos": _hipervinculo(enlace_fotos, f"Fotos {p.numero}") if enlace_fotos and p.fotos else "",
         "Realizado por": p.realizado_por, "Registrado por": p.registrado_por,
         "Fecha de registro": p.fecha_registro,
         COLUMNA_PDF: _hipervinculo(enlace_pdf, nombre_pdf) if enlace_pdf else nombre_pdf,
@@ -291,7 +334,7 @@ def construir_libro(filas: list[dict[str, object]]) -> bytes:
                 celda.number_format = FORMATO_FECHA
             elif nombre == "Fecha de registro":
                 celda.number_format = FORMATO_FECHA_HORA
-            elif nombre == COLUMNA_PDF and str(celda.value or "").startswith("="):
+            elif nombre in (COLUMNA_PDF, "Carpeta de fotos") and str(celda.value or "").startswith("="):
                 celda.font = Font(color="0563C1", underline="single")
     ultima = 1 + max(len(filas), 1)
     tabla = Table(displayName=TABLA, ref=f"A1:{get_column_letter(len(columnas))}{ultima}")
@@ -304,8 +347,9 @@ def construir_libro(filas: list[dict[str, object]]) -> bytes:
     return salida.getvalue()
 
 
-def agregar(contenido: bytes | None, p: Preinstalacion, nombre_pdf: str, enlace_pdf: str) -> tuple[bytes, int]:
+def agregar(contenido: bytes | None, p: Preinstalacion, nombre_pdf: str, enlace_pdf: str,
+            enlace_fotos: str = "") -> tuple[bytes, int]:
     """(libro con el reporte agregado al final, total de reportes)."""
     filas = leer_filas(contenido)
-    filas.append(fila(p, nombre_pdf, enlace_pdf))
+    filas.append(fila(p, nombre_pdf, enlace_pdf, enlace_fotos))
     return construir_libro(filas), len(filas)

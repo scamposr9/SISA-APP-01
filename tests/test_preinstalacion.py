@@ -4,7 +4,17 @@ import pytest
 
 from acta_app import preinstalacion as pre
 from acta_app.pdf.preinstalacion import generar_pdf
-from acta_app.preinstalacion import Contacto, Preinstalacion
+from acta_app.preinstalacion import Contacto, FotoAnexo, Preinstalacion
+
+
+def _png(color="black", tamano=(60, 30)) -> bytes:
+    import io
+
+    from PIL import Image
+
+    salida = io.BytesIO()
+    Image.new("RGB", tamano, color).save(salida, format="PNG")
+    return salida.getvalue()
 
 
 @pytest.fixture
@@ -18,6 +28,7 @@ def reporte() -> Preinstalacion:
         complementos_faltantes=["Lavaderos"], temperatura="22 °C",
         contactos=[Contacto("Liliana", "Arquitecta", "993 465 734"), Contacto("Carla", "Informática", "905 467 248")],
         observaciones=["Se requiere un nuevo tablero."], realizado_por="Ingeniero",
+        nombre_cliente="Liliana", firma_cliente_png=_png(), firma_representante_png=_png(),
     )
 
 
@@ -100,3 +111,54 @@ def test_un_solo_servicio_y_tipo_de_laboratorio(reporte):
     assert pre.validar(reporte) == ["Tipo de área (elige un servicio)"]
     reporte.servicios = ["Banco de Órganos"]
     assert pre.validar(reporte) == []
+
+
+def test_firmas_obligatorias(reporte):
+    reporte.firma_cliente_png, reporte.realizado_por = None, ""
+    assert pre.validar(reporte) == ["Firma del cliente", "Nombre del representante de Sistemas Analíticos"]
+
+
+def test_fotos_comprimidas_y_nombres_de_archivo():
+    jpg = pre.comprimir_foto(_png("red", (4000, 3000)))
+    from io import BytesIO
+
+    from PIL import Image
+
+    assert Image.open(BytesIO(jpg)).size == (1600, 1200)
+    assert pre.nombre_archivo_foto(1, 'Tablero: "eléctrico" / área') == "Foto 01 - Tablero eléctrico  área.jpg"
+    assert pre.nombre_archivo_foto(12, "") == "Foto 12.jpg"
+
+
+def test_pdf_con_firmas_y_anexo_fotografico(reporte):
+    from reportlab.pdfgen.canvas import Canvas
+
+    paginas = []
+    original = Canvas.showPage
+    Canvas.showPage = lambda self: (paginas.append(1), original(self))[1]
+    try:
+        generar_pdf(reporte)
+        sin_fotos = len(paginas)
+        paginas.clear()
+        reporte.fotos = [FotoAnexo(pre.comprimir_foto(_png("blue", (800, 600))), f"Foto {i}") for i in range(3)]
+        assert generar_pdf(reporte).startswith(b"%PDF")
+    finally:
+        Canvas.showPage = original
+    assert len(paginas) == sin_fotos + 2  # anexo: 2 fotos por página
+
+
+def test_sharepoint_guarda_firmas_y_fotos(reporte):
+    from tests.test_sharepoint import CARPETA, SharePointFalso
+    from acta_app.storage.sharepoint import RepositorioSharePoint
+
+    sp = SharePointFalso()
+    repo = RepositorioSharePoint(sp, carpeta=CARPETA, segundos_cache=0)
+    reporte.fotos = [FotoAnexo(b"jpg1", "Tablero eléctrico"), FotoAnexo(b"jpg2", "Puerta de ingreso")]
+    repo.guardar_preinstalacion(reporte, b"%PDF", "Preinstalacion_2026-P001.pdf")
+    assert f"{CARPETA}/Actas/Firmas Actas/2026-P001/cliente.png" in sp.archivos
+    assert f"{CARPETA}/Actas/Firmas Actas/2026-P001/representante.png" in sp.archivos
+    fotos = f"{CARPETA}/Preinstalaciones/Fotos Preinstalaciones/2026-P001"
+    assert sp.archivos[f"{fotos}/Foto 01 - Tablero eléctrico.jpg"][0] == b"jpg1"
+    assert f"{fotos}/Foto 02 - Puerta de ingreso.jpg" in sp.archivos
+    fila = pre.leer_filas(sp.archivos[f"{CARPETA}/Preinstalaciones/Preinstalaciones.xlsx"][0])[0]
+    assert fila["Fotos (anexo)"] == 2 and fila["Firma Cliente"] == "Firmado" and fila["Nombre Cliente"] == "Liliana"
+    assert str(fila["Carpeta de fotos"]).startswith('=HYPERLINK("https://sp.example/')

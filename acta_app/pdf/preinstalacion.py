@@ -286,13 +286,44 @@ def _observaciones(lz: _Lienzo, p: Preinstalacion) -> None:
         i += len(tramo)
 
 
-def _realizado_por(lz: _Lienzo, p: Preinstalacion) -> None:
-    lz.asegurar_espacio(12)
-    lz.y += 8
-    lz.fuente(BOLD, 9.5, NAVY)
-    lz.texto(MARGIN_X, lz.y, "Realizado por:")
-    lz.fuente(REGULAR, 9.5, INK)
-    lz.texto(MARGIN_X + 26, lz.y, f"{p.realizado_por or '—'} · {config.EMPRESA}")
+def _firmas(lz: _Lienzo, p: Preinstalacion) -> None:
+    """Conformidad igual que en el acta: firma del cliente y de Sistemas Analíticos."""
+    from types import SimpleNamespace
+
+    from acta_app.pdf.generator import _firmas as firmas_acta
+
+    firmas_acta(lz, SimpleNamespace(
+        firma_cliente_png=p.firma_cliente_png, firma_representante_png=p.firma_representante_png,
+        nombre_cliente=p.nombre_cliente, nombre_representante=p.realizado_por,
+    ))
+
+
+def _anexo_fotos(lz: _Lienzo, p: Preinstalacion) -> None:
+    """«Anexo fotográfico»: cada foto con lo que describe, dos por página."""
+    if not p.fotos:
+        return
+    from reportlab.lib.utils import ImageReader
+
+    alto_max, ancho_max = 105, CONTENT_W
+    for n, foto in enumerate(p.fotos, start=1):
+        if n % 2 == 1:
+            lz.nueva_pagina()
+            if n == 1:
+                lz.fuente(BOLD, 12, NAVY)
+                lz.texto(PAGE_W / 2, lz.y, "ANEXO FOTOGRÁFICO", align="center")
+                lz.fuente(REGULAR, 9, GRIS_SUBTITULO)
+                lz.texto(PAGE_W / 2, lz.y + 5.5, f"Reporte de Preinstalación N.° {p.numero}", align="center")
+                lz.y += 12
+        lz.fuente(BOLD, 9.5, NAVY)
+        lineas = lz.partir(f"Foto {n}: {foto.descripcion}", CONTENT_W)
+        for linea in lineas:
+            lz.texto(MARGIN_X, lz.y, linea)
+            lz.y += 4.6
+        ancho_px, alto_px = ImageReader(io.BytesIO(foto.datos)).getSize()
+        escala = min(ancho_max / ancho_px, alto_max / alto_px)
+        w, h = ancho_px * escala, alto_px * escala
+        lz.imagen(foto.datos, MARGIN_X + (CONTENT_W - w) / 2, lz.y, w, h)
+        lz.y += h + 10
 
 
 def generar_pdf(p: Preinstalacion) -> bytes:
@@ -306,6 +337,7 @@ def generar_pdf(p: Preinstalacion) -> bytes:
     _complementos(lz, p)
     _contactos(lz, p)
     _observaciones(lz, p)
-    _realizado_por(lz, p)
+    _firmas(lz, p)
+    _anexo_fotos(lz, p)
     lz.cerrar()
     return buffer.getvalue()

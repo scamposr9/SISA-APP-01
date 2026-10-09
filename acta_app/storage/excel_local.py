@@ -144,6 +144,11 @@ class RepositorioExcelLocal:
             carpeta_pdf = self.ruta_excel.parent / "pdfs_preinstalaciones"
             carpeta_pdf.mkdir(parents=True, exist_ok=True)
             (carpeta_pdf / nombre_pdf).write_bytes(pdf)
+            self._guardar_firmas(p)  # mismos nombres de campo que el acta: firmas/<N.°>/
+            carpeta_fotos = self.ruta_excel.parent / "fotos_preinstalaciones" / _nombre_seguro(p.numero)
+            for n, foto in enumerate(p.fotos, start=1):
+                carpeta_fotos.mkdir(parents=True, exist_ok=True)
+                (carpeta_fotos / preinstalacion.nombre_archivo_foto(n, foto.descripcion)).write_bytes(foto.datos)
             contenido, total = preinstalacion.agregar(self.preinstalaciones_bytes(), p, nombre_pdf, "")
             self.ruta_preinstalaciones.write_bytes(contenido)
             return ResultadoGuardado(total_actas=total, ubicacion_pdf=str(carpeta_pdf / nombre_pdf))
@@ -313,3 +318,7 @@ class RepositorioExcelLocal:
         finally:
             if os.path.exists(tmp):
                 os.remove(tmp)
+
+
+def _nombre_seguro(numero: str) -> str:
+    return "".join(ch if ch.isalnum() or ch == "-" else "_" for ch in numero)

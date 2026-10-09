@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 
 # Versión visible al pie de la app. Además se muestra el commit de GitHub desplegado
 # (ver version_desplegada), que cambia solo con cada actualización.
-APP_VERSION = "0.33.1"
+APP_VERSION = "0.34.0"
 
 # El servidor (p. ej. Streamlit Cloud) corre en UTC; fechas y horas se toman en hora de Perú.
 ZONA_HORARIA = ZoneInfo("America/Lima")
@@ -55,6 +55,7 @@ SHAREPOINT_CARPETA_ACTAS = "Actas"  # Actas.xlsx, PDF y Firmas Actas
 SHAREPOINT_CARPETA_BASE_DATOS = "Base de Datos"
 SHAREPOINT_CARPETA_PREINSTALACIONES = "Preinstalaciones"
 SHAREPOINT_PREINSTALACIONES = "Preinstalaciones.xlsx"
+SHAREPOINT_CARPETA_FOTOS_PREINSTALACIONES = "Fotos Preinstalaciones"  # <N.°>/Foto 01 - ….jpg
 SHAREPOINT_CARPETA_PDF_PREINSTALACIONES = "PDF Preinstalaciones"
 # Mantenimientos preventivos de balanzas (acta + pruebas de funcionamiento).
 SHAREPOINT_BALANZAS = "Mantenimientos Balanzas.xlsx"

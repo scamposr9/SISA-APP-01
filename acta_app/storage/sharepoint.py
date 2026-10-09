@@ -446,14 +446,24 @@ class RepositorioSharePoint:
         return archivo.datos if archivo else None
 
     def guardar_preinstalacion(self, p: Preinstalacion, pdf: bytes, nombre_pdf: str) -> ResultadoGuardado:
-        enlace_pdf = None
+        enlace_pdf, enlace_fotos = None, ""
         for _ in range(INTENTOS_POR_CONFLICTO):
             archivo = self.almacen.leer(self.ruta_preinstalaciones)
             if preinstalacion.existe(preinstalacion.leer_filas(archivo.datos if archivo else None), p.numero):
                 raise ActaDuplicadaError(p.numero)
             if enlace_pdf is None:
                 enlace_pdf = self._subir(f"{self.ruta_pdf_preinstalaciones}/{nombre_pdf}", pdf)
-            contenido, total = preinstalacion.agregar(archivo.datos if archivo else None, p, nombre_pdf, enlace_pdf)
+                # Firmas en Firmas Actas/<N.°>/ (como las del acta) y fotos en su carpeta.
+                for quien, png in (("cliente", p.firma_cliente_png), ("representante", p.firma_representante_png)):
+                    if png:
+                        self._subir(self._ruta_firma(p.numero, quien), png)
+                carpeta_fotos = (f"{self.carpeta}/{config.SHAREPOINT_CARPETA_PREINSTALACIONES}/"
+                                 f"{config.SHAREPOINT_CARPETA_FOTOS_PREINSTALACIONES}/{_nombre_seguro(p.numero)}")
+                for n, foto in enumerate(p.fotos, start=1):
+                    self._subir(f"{carpeta_fotos}/{preinstalacion.nombre_archivo_foto(n, foto.descripcion)}", foto.datos)
+                enlace_fotos = (self.almacen.enlace(carpeta_fotos) or "") if p.fotos else ""
+            contenido, total = preinstalacion.agregar(archivo.datos if archivo else None, p, nombre_pdf, enlace_pdf,
+                                                      enlace_fotos)
             try:
                 self.almacen.escribir(
                     self.ruta_preinstalaciones, contenido,
