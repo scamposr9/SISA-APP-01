@@ -66,7 +66,8 @@ def test_sharepoint_rechaza_numero_repetido(reporte):
     repo = RepositorioSharePoint(sp, carpeta=CARPETA, segundos_cache=0)
     resultado = repo.guardar_preinstalacion(reporte, b"%PDF", "Preinstalacion_2026-P001.pdf")
     assert resultado.total_actas == 1
-    assert f"{CARPETA}/PDF Preinstalaciones/Preinstalacion_2026-P001.pdf" in sp.archivos
+    assert f"{CARPETA}/Preinstalaciones/PDF Preinstalaciones/Preinstalacion_2026-P001.pdf" in sp.archivos
+    assert f"{CARPETA}/Preinstalaciones/Preinstalaciones.xlsx" in sp.archivos
     assert repo.existe_preinstalacion("2026-P001")
     with pytest.raises(ActaDuplicadaError):
         repo.guardar_preinstalacion(reporte, b"%PDF", "Preinstalacion_2026-P001.pdf")

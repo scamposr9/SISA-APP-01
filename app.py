@@ -24,7 +24,6 @@ from acta_app.storage import (
 from acta_app.ui.components import encabezado, etiqueta, seccion
 from acta_app.encuesta_qr import generar_qr, imagen_qr
 from acta_app.ui.encuesta import (
-    abrir_encuesta,
     codigo_en_la_direccion,
     numero_en_la_direccion,
     pagina_encuesta,
@@ -206,12 +205,7 @@ def qr_encuesta(numero: str, clave: str) -> None:
 
 @st.dialog("Acta guardada correctamente")
 def dialogo_guardado(acta: Acta, pdf: bytes, nombre_pdf: str, total_actas: int, enlace_pdf: str = "") -> None:
-    st.write(
-        f"El acta N.° {acta.numero} se agregó como una nueva fila al Excel maestro "
-        f"({total_actas} {'acta registrada' if total_actas == 1 else 'actas registradas'} en total) "
-        "y se generó el PDF con el mismo formato "
-        "del acta física."
-    )
+    st.write(f"El acta N.° {acta.numero} se guardó correctamente.")
     st.download_button(
         "Descargar PDF",
         data=pdf,
@@ -221,12 +215,7 @@ def dialogo_guardado(acta: Acta, pdf: bytes, nombre_pdf: str, total_actas: int, 
         type="primary",
         width="stretch",
     )
-    if enlace_pdf.startswith("http"):
-        st.link_button("Abrir el PDF en SharePoint", enlace_pdf, width="stretch")
     qr_encuesta(acta.numero, "guardado")
-    if es_desarrollador() and st.button("Abrir encuesta de satisfacción (prueba)", on_click=abrir_encuesta,
-                                        args=(acta.numero,), width="stretch"):
-        st.rerun()
     # La limpieza va en el callback (antes de dibujar) y st.rerun() recarga toda la página,
     # no solo la ventana.
     if st.button("Registrar una nueva acta", on_click=limpiar_formulario, width="stretch"):
@@ -243,11 +232,7 @@ def volver_a_nueva_acta() -> None:
 
 @st.dialog("Corrección guardada")
 def dialogo_correccion(acta: Acta, pdf: bytes, nombre_pdf: str, enlace_pdf: str = "") -> None:
-    st.write(
-        f"Se actualizó la fila del acta N.° {acta.numero} en el Excel maestro con los datos "
-        f"corregidos (revisión {acta.revision}). El PDF original se conserva y se creó "
-        f"«{nombre_pdf}»; ambos quedan enlazados en la fila."
-    )
+    st.write(f"La corrección del acta N.° {acta.numero} (revisión {acta.revision}) se guardó correctamente.")
     st.download_button(
         "Descargar PDF corregido",
         data=pdf,
@@ -257,8 +242,6 @@ def dialogo_correccion(acta: Acta, pdf: bytes, nombre_pdf: str, enlace_pdf: str 
         type="primary",
         width="stretch",
     )
-    if enlace_pdf.startswith("http"):
-        st.link_button("Abrir el PDF corregido en SharePoint", enlace_pdf, width="stretch")
     if st.button("Volver a registrar actas nuevas", on_click=volver_a_nueva_acta, width="stretch"):
         st.rerun()
 
@@ -680,14 +663,9 @@ def anotar_si_es_equipo_nuevo(acta: Acta) -> None:
 
 @st.dialog("Reporte de preinstalación guardado")
 def dialogo_preinstalacion(p: Preinstalacion, pdf: bytes, nombre_pdf: str, total: int, enlace_pdf: str) -> None:
-    st.write(
-        f"El reporte de preinstalación N.° {p.numero} se agregó a {config.SHAREPOINT_PREINSTALACIONES} "
-        f"({total} {'reporte registrado' if total == 1 else 'reportes registrados'} en total) y se generó su PDF."
-    )
+    st.write(f"El reporte de preinstalación N.° {p.numero} se guardó correctamente.")
     st.download_button("Descargar PDF", data=pdf, file_name=nombre_pdf, mime="application/pdf",
                        on_click="ignore", type="primary", width="stretch")
-    if enlace_pdf.startswith("http"):
-        st.link_button("Abrir el PDF en SharePoint", enlace_pdf, width="stretch")
     if st.button("Registrar una nueva acta", on_click=limpiar_formulario, width="stretch"):
         st.rerun()
 

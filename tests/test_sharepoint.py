@@ -246,7 +246,7 @@ def test_equipo_nuevo_crea_equipos_nuevos_con_el_primero_y_no_duplica(repo, sp, 
     from acta_app.catalogo import Catalogo
     from acta_app.equipos_nuevos import es_equipo_nuevo
 
-    ruta = f"{CARPETA}/Equipos_nuevos.xlsx"
+    ruta = f"{CARPETA}/Base de Datos/Equipos_nuevos.xlsx"
     assert repo.leer_equipos_nuevos() is None  # no existe hasta el primer equipo nuevo
     assert repo.registrar_equipo_nuevo(acta_completa, "ana@sistemasanaliticos.com")
     assert ruta in sp.archivos
@@ -433,3 +433,14 @@ def test_borrador_en_sharepoint_por_usuario(repo, sp, acta_completa):
     assert desde_json(repo.leer_borrador("scampos@sistemasanaliticos.com")).acta.cliente == acta_completa.cliente
     repo.borrar_borrador("scampos@sistemasanaliticos.com")
     assert repo.leer_borrador("scampos@sistemasanaliticos.com") is None
+
+
+def test_catalogos_en_base_de_datos_o_en_la_ubicacion_anterior(sp):
+    repo = RepositorioSharePoint(sp, carpeta=CARPETA, segundos_cache=0)
+    sp.archivos[f"{CARPETA}/Repuestos.xlsx"] = (b"viejo", 1)  # aún sin mover
+    assert repo.leer_repuestos() == b"viejo"
+    repo = RepositorioSharePoint(sp, carpeta=CARPETA, segundos_cache=0)
+    sp.archivos[f"{CARPETA}/Base de Datos/Repuestos.xlsx"] = (b"nuevo", 1)  # ya movido
+    assert repo.leer_repuestos() == b"nuevo"
+    sp.archivos[f"{CARPETA}/Base de Datos/Mantenimientos Preventivos.xlsx"] = (b"mp", 1)
+    assert repo.leer_protocolos() == b"mp"

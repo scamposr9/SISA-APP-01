@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 
 # Versión visible al pie de la app. Además se muestra el commit de GitHub desplegado
 # (ver version_desplegada), que cambia solo con cada actualización.
-APP_VERSION = "0.31.1"
+APP_VERSION = "0.32.0"
 
 # El servidor (p. ej. Streamlit Cloud) corre en UTC; fechas y horas se toman en hora de Perú.
 ZONA_HORARIA = ZoneInfo("America/Lima")
@@ -49,6 +49,11 @@ SHAREPOINT_EQUIPOS = "Equipos.xlsx"  # catálogo para el autocompletado
 SHAREPOINT_EQUIPOS_NUEVOS = "Equipos_nuevos.xlsx"
 SHAREPOINT_BORRADORES = "Borradores"  # acta a medio llenar de cada usuario
 # Reporte de preinstalación (Presite): Excel maestro y PDFs propios, en la misma carpeta.
+# Subcarpetas de la carpeta de actas: catálogos (Equipos, Equipos_nuevos, Repuestos y
+# Mantenimientos Preventivos) y preinstalaciones (su Excel y su carpeta de PDF). Si un archivo
+# aún está suelto en la carpeta de actas (ubicación anterior), se sigue usando ese.
+SHAREPOINT_CARPETA_BASE_DATOS = "Base de Datos"
+SHAREPOINT_CARPETA_PREINSTALACIONES = "Preinstalaciones"
 SHAREPOINT_PREINSTALACIONES = "Preinstalaciones.xlsx"
 SHAREPOINT_CARPETA_PDF_PREINSTALACIONES = "PDF Preinstalaciones"
 # Mantenimientos preventivos de balanzas (acta + pruebas de funcionamiento).

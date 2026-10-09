@@ -142,9 +142,16 @@ aparecen los del reporte de preinstalación (los datos generales son los mismos)
 eléctricas (punto dedicado y los 13 tipos de toma del formato en Word, con sus dibujos), traslado del equipo,
 accesos (3 filas de entrada, se pueden agregar más), tipo de área, medidas de la mesa de trabajo y
 del piso en cm, complementos faltantes, temperatura, varios contactos y observaciones. Se guarda en
-su propio Excel maestro, `Preinstalaciones.xlsx`, con su PDF en `PDF Preinstalaciones/` (misma
-carpeta de actas); `Actas.xlsx` no cambia. En el PDF solo salen las opciones marcadas (con X),
+su propio Excel maestro, `Preinstalaciones/Preinstalaciones.xlsx`, con su PDF en
+`Preinstalaciones/PDF Preinstalaciones/` (dentro de la carpeta de actas); `Actas.xlsx` no cambia. En el PDF solo salen las opciones marcadas (con X),
 salvo los complementos faltantes, que salen todos.
+
+### Carpetas en SharePoint
+
+Dentro de la carpeta de actas (Ingeniería): `Base de Datos/` con `Equipos.xlsx`,
+`Equipos_nuevos.xlsx`, `Repuestos.xlsx` y `Mantenimientos Preventivos.xlsx`, y `Preinstalaciones/`
+con `Preinstalaciones.xlsx` y `PDF Preinstalaciones/`. Si alguno de esos archivos sigue suelto en la
+carpeta de actas (ubicación anterior), la app lo usa ahí hasta que se mueva.
 
 ### Mantenimiento preventivo de balanzas
 

@@ -110,13 +110,19 @@ class RepositorioSharePoint:
         self.ruta_pdf = f"{self.carpeta}/{carpeta_pdf}"
         self.ruta_firmas = f"{self.carpeta}/{CARPETA_FIRMAS}"
         self.ruta_borradores = f"{self.carpeta}/{config.SHAREPOINT_BORRADORES}"
-        self.ruta_preinstalaciones = f"{self.carpeta}/{config.SHAREPOINT_PREINSTALACIONES}"
         self.ruta_balanzas = f"{self.carpeta}/{config.SHAREPOINT_BALANZAS}"
-        self.ruta_pdf_preinstalaciones = f"{self.carpeta}/{config.SHAREPOINT_CARPETA_PDF_PREINSTALACIONES}"
-        self.ruta_equipos = f"{self.carpeta}/{equipos}"
-        self.ruta_equipos_nuevos = f"{self.carpeta}/{equipos_nuevos}"
-        self.ruta_protocolos = f"{self.carpeta}/{protocolos}"
-        self.ruta_repuestos = f"{self.carpeta}/{repuestos}"
+        # (ubicación actual, ubicación anterior): ver `_ruta`.
+        base, pre = config.SHAREPOINT_CARPETA_BASE_DATOS, config.SHAREPOINT_CARPETA_PREINSTALACIONES
+        self._ubicaciones = {
+            nombre: (f"{self.carpeta}/{subcarpeta}/{archivo}", f"{self.carpeta}/{archivo}")
+            for nombre, subcarpeta, archivo in (
+                ("equipos", base, equipos), ("equipos_nuevos", base, equipos_nuevos),
+                ("protocolos", base, protocolos), ("repuestos", base, repuestos),
+                ("preinstalaciones", pre, config.SHAREPOINT_PREINSTALACIONES),
+                ("pdf_preinstalaciones", pre, config.SHAREPOINT_CARPETA_PDF_PREINSTALACIONES),
+            )
+        }
+        self._elegidas: dict[str, tuple[float, str]] = {}
         # Se busca dentro de la carpeta de actas y, si no, junto a ella.
         padre = self.carpeta.rsplit("/", 1)[0] if "/" in self.carpeta else ""
         self.rutas_nombres_ingenieros = [
@@ -128,6 +134,31 @@ class RepositorioSharePoint:
         self._segundos_cache = segundos_cache
         self._cache: tuple[float, Archivo | None] | None = None
         self._lock = threading.Lock()
+
+    # ---------- Ubicación de catálogos y preinstalaciones ----------
+    def _ruta(self, nombre: str) -> str:
+        """Ruta en su subcarpeta («Base de Datos», «Preinstalaciones») o, si todavía no se movió
+        allí y sigue en la ubicación anterior (suelto en la carpeta de actas), esa. Lo nuevo
+        se crea en la subcarpeta. Se recuerda un minuto para no consultar en cada uso."""
+        guardada = self._elegidas.get(nombre)
+        if guardada and time.monotonic() - guardada[0] < 60:
+            return guardada[1]
+        nueva, anterior = self._ubicaciones[nombre]
+        if self.almacen.enlace(nueva):
+            ruta = nueva
+        elif self.almacen.enlace(anterior):
+            ruta = anterior
+        else:
+            return nueva  # todavía no existe: se creará en la subcarpeta (no se recuerda)
+        self._elegidas[nombre] = (time.monotonic(), ruta)
+        return ruta
+
+    ruta_equipos = property(lambda self: self._ruta("equipos"))
+    ruta_equipos_nuevos = property(lambda self: self._ruta("equipos_nuevos"))
+    ruta_protocolos = property(lambda self: self._ruta("protocolos"))
+    ruta_repuestos = property(lambda self: self._ruta("repuestos"))
+    ruta_preinstalaciones = property(lambda self: self._ruta("preinstalaciones"))
+    ruta_pdf_preinstalaciones = property(lambda self: self._ruta("pdf_preinstalaciones"))
 
     # ---------- Lectura ----------
     def existe(self, numero: str) -> bool:
@@ -324,20 +355,20 @@ class RepositorioSharePoint:
             bool(self.almacen.enlace(self.ruta_equipos)),
             "Equipos.xlsx encontrado (autocompletado desde SharePoint)."
             if self.almacen.enlace(self.ruta_equipos)
-            else "Equipos.xlsx no está en la carpeta: el autocompletado de equipos queda vacío.",
+            else "Equipos.xlsx no está en «Base de Datos»: el autocompletado de equipos queda vacío.",
         ))
         pasos.append((
             bool(self.almacen.enlace(self.ruta_protocolos)),
             f"{self.ruta_protocolos.rsplit('/', 1)[-1]} encontrado (checklist del mantenimiento preventivo)."
             if self.almacen.enlace(self.ruta_protocolos)
-            else f"{self.ruta_protocolos.rsplit('/', 1)[-1]} no está en la carpeta: no habrá checklist "
+            else f"{self.ruta_protocolos.rsplit('/', 1)[-1]} no está en «Base de Datos»: no habrá checklist "
             "en el mantenimiento preventivo.",
         ))
         pasos.append((
             bool(self.almacen.enlace(self.ruta_repuestos)),
             "Repuestos.xlsx encontrado (autocompletado de Artículos empleados)."
             if self.almacen.enlace(self.ruta_repuestos)
-            else "Repuestos.xlsx no está en la carpeta: los artículos se escriben a mano.",
+            else "Repuestos.xlsx no está en «Base de Datos»: los artículos se escriben a mano.",
         ))
         try:
             encontrados = self.leer_nombres_ingenieros()
