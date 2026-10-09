@@ -146,7 +146,7 @@ su propio Excel maestro, `Preinstalaciones/Preinstalaciones.xlsx`, con su PDF en
 `Preinstalaciones/PDF Preinstalaciones/` (dentro de la carpeta de actas); `Actas.xlsx` no cambia. En el PDF solo salen las opciones marcadas (con X),
 salvo los complementos faltantes, que salen todos. Al final van «Fotos o anexos» (opcional: se agregan de una en una con
 la cámara o desde la galería, cada una con lo que muestra; se guardan en
-`Preinstalaciones/Fotos Preinstalaciones/<N.°>/` y salen como «Anexo fotográfico» al final del PDF) y
+`Preinstalaciones/Fotos Preinstalaciones/<N.°>/` y salen como «Anexo» al final del PDF) y
 la «Conformidad» con las firmas del cliente y del ingeniero (trazo o foto), guardadas en
 `Actas/Firmas Actas/<N.°>/` como las del acta.
 

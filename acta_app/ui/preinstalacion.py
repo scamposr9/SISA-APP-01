@@ -12,6 +12,7 @@ import streamlit as st
 from acta_app import preinstalacion as pre
 from acta_app.catalogo import limpiar
 from acta_app.preinstalacion import Contacto, FotoAnexo, Preinstalacion
+from acta_app.ui.camara import camara_trasera
 from acta_app.ui.components import etiqueta, lista_dinamica, precargar_lista, seccion
 
 
@@ -140,7 +141,7 @@ def secciones() -> Preinstalacion:
     return p
 
 
-ORIGEN_CAMARA, ORIGEN_ARCHIVO = "Tomar foto con la cámara", "Elegir de la galería o archivos"
+ORIGEN_CAMARA, ORIGEN_ARCHIVO = "Cámara trasera", "Subir desde la galería"
 
 
 def _fotos() -> list[FotoAnexo]:
@@ -149,17 +150,18 @@ def _fotos() -> list[FotoAnexo]:
     fotos: list[FotoAnexo] = st.session_state.setdefault(k("fotos"), [])
     version = st.session_state.setdefault(k("foto_version"), 0)
     clave_foto, clave_texto = k(f"foto_{version}"), k(f"foto_texto_{version}")
+    clave_datos = k(f"foto_datos_{version}")  # bytes de la foto elegida (cámara o galería)
 
     def agregar() -> None:
-        archivo = st.session_state.get(clave_foto)
+        datos_foto = st.session_state.get(clave_datos)
         texto = (st.session_state.get(clave_texto) or "").strip()
-        if archivo is None:
+        if datos_foto is None:
             return
         if not texto:
             st.session_state[k("foto_aviso")] = "Escribe qué muestra la foto antes de agregarla."
             return
         try:
-            datos = pre.comprimir_foto(archivo.getvalue())
+            datos = pre.comprimir_foto(datos_foto)
         except Exception:
             st.session_state[k("foto_aviso")] = "No se pudo leer la imagen. Prueba con otra foto (JPG o PNG)."
             return
@@ -180,16 +182,20 @@ def _fotos() -> list[FotoAnexo]:
         origen = st.radio("Origen de la foto", [ORIGEN_CAMARA, ORIGEN_ARCHIVO], horizontal=True,
                           key=k("foto_origen"), label_visibility="collapsed")
         if origen == ORIGEN_CAMARA:
-            archivo = st.camera_input("Foto", key=clave_foto, label_visibility="collapsed")
+            datos_foto = camara_trasera(key=clave_foto + "_camara")
         else:
-            archivo = st.file_uploader("Foto", type=["jpg", "jpeg", "png", "webp"], key=clave_foto,
-                                       label_visibility="collapsed")
+            subida = st.file_uploader("Foto", type=["jpg", "jpeg", "png", "webp"], key=clave_foto + "_galeria",
+                                      label_visibility="collapsed")
+            datos_foto = subida.getvalue() if subida is not None else None
+        st.session_state[clave_datos] = datos_foto
+        if datos_foto is not None:
+            st.image(datos_foto, width=260, caption="Vista previa")
         st.text_area("¿Qué muestra esta foto?", key=clave_texto, height=68,
                      placeholder="Ej: Tablero eléctrico del área donde irá el equipo")
         if aviso := st.session_state.pop(k("foto_aviso"), None):
             st.warning(aviso, icon="⚠️")
         st.button(f"Agregar foto {len(fotos) + 1}", key=k(f"agregar_foto_{version}"), on_click=agregar,
-                  disabled=archivo is None, icon=":material/add_a_photo:")
+                  disabled=datos_foto is None, icon=":material/add_a_photo:")
     return list(fotos)
 
 

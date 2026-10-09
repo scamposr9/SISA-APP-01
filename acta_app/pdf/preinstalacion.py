@@ -299,7 +299,7 @@ def _firmas(lz: _Lienzo, p: Preinstalacion) -> None:
 
 
 def _anexo_fotos(lz: _Lienzo, p: Preinstalacion) -> None:
-    """«Anexo fotográfico»: cada foto con lo que describe, dos por página."""
+    """«Anexo»: cada foto con lo que describe, dos por página."""
     if not p.fotos:
         return
     from reportlab.lib.utils import ImageReader
@@ -310,7 +310,7 @@ def _anexo_fotos(lz: _Lienzo, p: Preinstalacion) -> None:
             lz.nueva_pagina()
             if n == 1:
                 lz.fuente(BOLD, 12, NAVY)
-                lz.texto(PAGE_W / 2, lz.y, "ANEXO FOTOGRÁFICO", align="center")
+                lz.texto(PAGE_W / 2, lz.y, "ANEXO", align="center")
                 lz.fuente(REGULAR, 9, GRIS_SUBTITULO)
                 lz.texto(PAGE_W / 2, lz.y + 5.5, f"Reporte de Preinstalación N.° {p.numero}", align="center")
                 lz.y += 12
