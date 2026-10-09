@@ -1,6 +1,6 @@
 """Reglas de validación del acta (mismas que el prototipo HTML)."""
 
-from acta_app import config
+from acta_app import balanzas, config
 from acta_app.models import Acta
 
 
@@ -53,4 +53,6 @@ def validar_acta(acta: Acta) -> list[str]:
     if any(not a.esta_completo for a in acta.articulos_usados):
         errores.append("Artículos empleados (completa las 3 columnas de cada fila usada)")
 
+    if acta.pruebas_balanza is not None:
+        errores += balanzas.validar(acta.pruebas_balanza)
     return errores

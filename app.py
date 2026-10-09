@@ -4,7 +4,7 @@ import streamlit as st
 
 from acta_app import config
 from acta_app.borrador import Borrador, a_json, desde_json, huella, tiene_datos
-from acta_app import preinstalacion
+from acta_app import balanzas, preinstalacion
 from acta_app.models import Acta, ahora
 from acta_app.pdf.preinstalacion import generar_pdf as generar_pdf_preinstalacion
 from acta_app.preinstalacion import Preinstalacion
@@ -268,7 +268,10 @@ def _cargar_para_corregir() -> None:
     if not numero:
         return
     try:
-        cargar_en_formulario(obtener_repositorio().obtener(numero))
+        acta = obtener_repositorio().obtener(numero)
+        if acta.tipo_servicio == config.TIPO_SERVICIO_PREVENTIVO and balanzas.es_balanza(acta.equipo):
+            acta.pruebas_balanza = obtener_repositorio().leer_pruebas_balanza(numero)
+        cargar_en_formulario(acta)
     except ActaNoEncontradaError:
         st.session_state["aviso_correccion"] = f"No se encontró el acta N.° {numero}."
     except AlmacenamientoError as exc:
@@ -713,6 +716,17 @@ def guardar_preinstalacion(acta: Acta) -> None:
         dialogo_preinstalacion(p, pdf, nombre_pdf, resultado.total_actas, resultado.ubicacion_pdf)
 
 
+def copiar_a_balanzas(acta: Acta, nombre_pdf: str, enlace_pdf: str) -> None:
+    """Balanzas: copia el acta y sus pruebas a Mantenimientos Balanzas.xlsx. Si falla, el
+    acta igual quedó guardada en Actas.xlsx."""
+    if acta.pruebas_balanza is None:
+        return
+    try:
+        obtener_repositorio().registrar_balanza(acta, nombre_pdf, enlace_pdf)
+    except AlmacenamientoError as exc:
+        st.warning(f"El acta se guardó, pero no se pudo copiar a {config.SHAREPOINT_BALANZAS}: {exc}", icon="⚠️")
+
+
 def guardar_acta_nueva(acta: Acta) -> None:
     repo = obtener_repositorio()
     try:
@@ -735,6 +749,7 @@ def guardar_acta_nueva(acta: Acta) -> None:
     else:
         banner.success(f"Acta N.° {acta.numero} guardada correctamente.", icon="✅")
         borrar_borrador_guardado()
+        copiar_a_balanzas(acta, nombre_pdf, resultado.ubicacion_pdf)
         anotar_si_es_equipo_nuevo(acta)
         dialogo_guardado(acta, pdf, nombre_pdf, resultado.total_actas, resultado.ubicacion_pdf)
 
@@ -750,6 +765,7 @@ def guardar_correccion(acta: Acta) -> None:
         aviso("error", mensaje)
     else:
         banner.success(f"Corrección del acta N.° {acta.numero} guardada (revisión {acta.revision}).", icon="✅")
+        copiar_a_balanzas(acta, nombre_pdf, resultado.ubicacion_pdf)
         anotar_si_es_equipo_nuevo(acta)
         dialogo_correccion(acta, pdf, nombre_pdf, resultado.ubicacion_pdf)
 

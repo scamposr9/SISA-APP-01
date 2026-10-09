@@ -136,6 +136,9 @@ class Acta:
     # Con tipo de servicio «Presite»: apartados del reporte de preinstalación (no se guardan
     # en Actas.xlsx sino en Preinstalaciones.xlsx). Es un `preinstalacion.Preinstalacion`.
     preinstalacion: object | None = field(default=None, compare=False, repr=False)
+    # Mantenimiento preventivo de una balanza: tabla «Pruebas de funcionamiento» (se copia a
+    # Mantenimientos Balanzas.xlsx, no a Actas.xlsx). Es un `balanzas.PruebasBalanza`.
+    pruebas_balanza: object | None = field(default=None, compare=False, repr=False)
 
     # ---------- Valores derivados, en el mismo formato que el prototipo ----------
     @property

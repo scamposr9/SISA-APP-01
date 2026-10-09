@@ -126,6 +126,15 @@ class RepositorioActas(Protocol):
         """Contenido del Excel de preinstalaciones, para descargarlo desde la app."""
         ...
 
+    def registrar_balanza(self, acta: Acta, nombre_pdf: str, enlace_pdf: str) -> int:
+        """Copia el acta de una balanza (con sus pruebas) a Mantenimientos Balanzas.xlsx; una
+        corrección reemplaza su fila. Devuelve el total de actas de balanzas."""
+        ...
+
+    def leer_pruebas_balanza(self, numero: str):
+        """Pruebas de funcionamiento guardadas de esa acta (para corregirla), o None."""
+        ...
+
     def leer_borrador(self, usuario: str) -> bytes | None:
         """Borrador del acta que `usuario` estaba llenando (JSON), si hay."""
         ...
@@ -174,3 +183,16 @@ def validar_codigo(registro: Registro, clave_hash: str | None) -> None:
 def normalizar_numero(numero: str) -> str:
     """'2026-00051 ' y '2026-00051' son la misma acta."""
     return "".join(numero.split()).casefold()
+
+
+def fila_balanza(acta: Acta, nombre_pdf: str, enlace_pdf: str) -> dict[str, object]:
+    """Fila de Mantenimientos Balanzas.xlsx: las columnas del acta, sus pruebas y el PDF."""
+    from acta_app import balanzas
+    from acta_app.storage.esquema import COLUMNAS_PDF, fila_plana, registro_desde_acta
+    from acta_app.storage.excel_formato import formula_hipervinculo
+
+    fila = {c: v for c, v in fila_plana(registro_desde_acta(acta)).items() if c not in COLUMNAS_PDF}
+    fila.update(balanzas.fila_pruebas(acta.pruebas_balanza))
+    enlace = formula_hipervinculo(enlace_pdf, nombre_pdf) if enlace_pdf.startswith("http") else None
+    fila[balanzas.COLUMNA_PDF] = enlace or nombre_pdf
+    return fila

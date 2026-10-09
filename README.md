@@ -146,6 +146,17 @@ su propio Excel maestro, `Preinstalaciones.xlsx`, con su PDF en `PDF Preinstalac
 carpeta de actas); `Actas.xlsx` no cambia. En el PDF solo salen las opciones marcadas (con X),
 salvo los complementos faltantes, que salen todos.
 
+### Mantenimiento preventivo de balanzas
+
+Si el equipo (o su protocolo en Mantenimientos Preventivos.xlsx) se llama «balanza» y el tipo de
+servicio es «Mant. Preventivo», después de «Acciones realizadas» aparece «Pruebas de
+funcionamiento»: la tabla Equipment Details con los pesos de referencia fijos (Required Weight:
+100 a 2500 gm) y, para cada uno, lo que mostró la balanza (Displayed Weight) y la lectura tras el
+ajuste (Adjustment Weight); todas las casillas son obligatorias. La actividad «Pruebas de
+funcionamiento» del protocolo no sale en el checklist. El acta se guarda en `Actas.xlsx` como
+siempre y además se copia, con las pruebas, a `Mantenimientos Balanzas.xlsx` (una corrección
+reemplaza su fila). El PDF lleva la tabla después de las acciones.
+
 ### Borrador automático
 
 Mientras se llena un acta nueva, la app guarda un borrador (sin firmas) cada ~20 segundos en

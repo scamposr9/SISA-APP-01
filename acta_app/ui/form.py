@@ -2,9 +2,11 @@
 
 import hashlib
 
+import pandas as pd
+
 import streamlit as st
 
-from acta_app import config
+from acta_app import balanzas, config
 from acta_app.borrador import Borrador
 from acta_app.catalogo import clave, limpiar
 from acta_app.models import Acta, ActividadChecklist, duracion, hoy, redondear_a_5_minutos
@@ -75,6 +77,50 @@ def actividades_quitadas() -> list[str]:
     return list(st.session_state.get(k("chk_quitadas")) or [])
 
 
+def _es_balanza(acta: Acta) -> bool:
+    protocolo = cargar_protocolos().buscar(acta.equipo, acta.marca, acta.modelo)
+    return balanzas.es_balanza(acta.equipo, protocolo.equipo if protocolo else "")
+
+
+def _datos_pruebas(p: balanzas.PruebasBalanza | None) -> pd.DataFrame:
+    """Tabla de la balanza: encabezado = pesos de referencia (Required Weight), filas =
+    lo que mostró la balanza (Displayed) y lo que muestra tras el ajuste (Adjustment)."""
+    p = p or balanzas.PruebasBalanza()
+    filas = [(balanzas.FILA_MOSTRADO, p.mostrados), (balanzas.FILA_AJUSTADO, p.ajustados)]
+    return pd.DataFrame(
+        [{balanzas.FILA_REQUERIDO: nombre, **{str(peso): v for peso, v in zip(balanzas.PESOS_REQUERIDOS, valores)}}
+         for nombre, valores in filas]
+    ).astype({str(peso): "float64" for peso in balanzas.PESOS_REQUERIDOS})
+
+
+def precargar_pruebas(p: balanzas.PruebasBalanza | None) -> None:
+    st.session_state[k("pruebas_base")] = _datos_pruebas(p)
+    st.session_state.pop(k("pruebas"), None)
+
+
+def _tabla_pruebas() -> balanzas.PruebasBalanza:
+    st.caption(
+        f"La primera fila son los pesos de referencia ({balanzas.FILA_REQUERIDO}). Escribe lo que muestra la "
+        "balanza con cada peso y, después del ajuste, la nueva lectura."
+    )
+    base = st.session_state.setdefault(k("pruebas_base"), _datos_pruebas(None))
+    columnas = {balanzas.FILA_REQUERIDO: st.column_config.TextColumn(balanzas.FILA_REQUERIDO, disabled=True, width=138)}
+    columnas |= {str(peso): st.column_config.NumberColumn(str(peso), min_value=0.0, width=57)
+                 for peso in balanzas.PESOS_REQUERIDOS}
+    tabla = st.data_editor(base, key=k("pruebas"), hide_index=True, num_rows="fixed", column_config=columnas,
+                           width="stretch")
+
+    def fila(i: int) -> list[float | None]:
+        return [None if pd.isna(tabla.iloc[i][str(peso)]) else float(tabla.iloc[i][str(peso)])
+                for peso in balanzas.PESOS_REQUERIDOS]
+
+    pruebas = balanzas.PruebasBalanza(fila(0), fila(1))
+    faltan = balanzas.validar(pruebas)
+    st.caption(":red[Completa todas las casillas de la tabla para poder guardar.]" if faltan
+               else "✅ Tabla completa.")
+    return pruebas
+
+
 def _precargar(acta: Acta) -> None:
     valores = {
         "acta_numero": acta.numero,
@@ -103,6 +149,8 @@ def _precargar(acta: Acta) -> None:
     ):
         precargar_lista(k(nombre), puntos)
     precargar_articulos(k("articulos"), acta.articulos)
+    if acta.pruebas_balanza is not None:
+        precargar_pruebas(acta.pruebas_balanza)
     for actividad in acta.checklist:
         st.session_state[_clave_actividad(actividad.texto)] = actividad.hecha
 
@@ -205,6 +253,9 @@ def _checklist_preventivo(acta: Acta, original: Acta | None) -> list[ActividadCh
         actividades, origen = guardado, "checklist del acta original"
     elif protocolo:
         actividades = protocolo.actividades
+        if balanzas.es_balanza(acta.equipo, protocolo.equipo):
+            # En balanzas, «Pruebas de funcionamiento» es su propia sección (tabla), no una casilla.
+            actividades = [a for a in actividades if not balanzas.es_actividad_de_pruebas(a)]
         origen = " · ".join(v for v in (protocolo.equipo, protocolo.marca, protocolo.modelo) if v)
     else:
         if acta.modelo:
@@ -339,6 +390,11 @@ def formulario_acta() -> Acta:
         if acta.checklist:
             st.markdown("**Acciones adicionales** (opcional)")
         acta.acciones = lista_dinamica(k("acciones"), "Ej: Se revisó el sistema de refrigeración...")
+
+    # ---------- Pruebas de funcionamiento (solo mantenimiento preventivo de balanzas) ----------
+    if preventivo and _es_balanza(acta):
+        with seccion("pruebas", balanzas.SECCION, nota=f"({balanzas.TITULO_TABLA})"):
+            acta.pruebas_balanza = _tabla_pruebas()
 
     # ---------- Estado final ----------
     with seccion("estado_final", "Estado final del servicio"):

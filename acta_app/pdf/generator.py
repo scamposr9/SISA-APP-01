@@ -329,6 +329,47 @@ def _acciones(lz: _Lienzo, acta: Acta) -> None:
     lz.y += 3
 
 
+def _pruebas_balanza(lz: _Lienzo, acta: Acta) -> None:
+    """Balanzas: tabla «Equipment Details» (Required / Displayed / Adjustment Weight × 12 pesos)."""
+    p = acta.pruebas_balanza
+    if p is None:
+        return
+    from acta_app import balanzas
+
+    etiqueta_w, fila_h, titulo_h = 29, 9, 6.5
+    col_w = (CONTENT_W - etiqueta_w) / len(balanzas.PESOS_REQUERIDOS)
+    lz.asegurar_espacio(5.5 + titulo_h + 3 * fila_h + 8)
+    lz.fuente(BOLD, 9.5, NAVY)
+    lz.texto(MARGIN_X, lz.y, balanzas.SECCION)
+    lz.y += 3
+    # Fila de título, como en el formato: «Equipment Details» centrado y subrayado.
+    lz.rect(MARGIN_X, lz.y, CONTENT_W, titulo_h, color=INK)
+    lz.fuente(REGULAR, 9, INK)
+    lz.texto(PAGE_W / 2, lz.y + 4.5, balanzas.TITULO_TABLA, align="center")
+    ancho_titulo = stringWidth(balanzas.TITULO_TABLA, REGULAR, 9) / mm
+    lz.linea(PAGE_W / 2 - ancho_titulo / 2, lz.y + 5.2, PAGE_W / 2 + ancho_titulo / 2, lz.y + 5.2, color=INK)
+    lz.y += titulo_h
+    filas = [
+        (balanzas.FILA_REQUERIDO, [float(v) for v in balanzas.PESOS_REQUERIDOS]),
+        (balanzas.FILA_MOSTRADO, p.mostrados),
+        (balanzas.FILA_AJUSTADO, p.ajustados),
+    ]
+    for nombre, valores in filas:
+        lz.rect(MARGIN_X, lz.y, etiqueta_w, fila_h, color=INK)
+        titulo, unidad = nombre.rsplit(" (", 1)
+        lz.fuente(REGULAR, 8, INK)
+        lz.texto(MARGIN_X + 1.5, lz.y + 3.8, titulo)
+        lz.fuente(REGULAR, 6.5, INK)
+        lz.texto(MARGIN_X + etiqueta_w - 1.5, lz.y + 7.4, f"({unidad}", align="right")
+        for i, valor in enumerate(valores):
+            x = MARGIN_X + etiqueta_w + col_w * i
+            lz.rect(x, lz.y, col_w, fila_h, color=INK)
+            lz.fuente(REGULAR, 8.5, INK)
+            lz.texto(x + col_w / 2, lz.y + 5.8, balanzas.numero(valor), align="center")
+        lz.y += fila_h
+    lz.y += 8
+
+
 def _horas(lz: _Lienzo, acta: Acta) -> None:
     lz.asegurar_espacio(8)
     lz.fuente(REGULAR, 9, GRIS_ETIQUETA)
@@ -427,6 +468,7 @@ def generar_pdf(acta: Acta) -> bytes:
     _lista(lz, "Antecedentes iniciales", acta.antecedentes)
     _horas(lz, acta)
     _acciones(lz, acta)
+    _pruebas_balanza(lz, acta)
     _estado_final(lz, acta)
     _articulos(lz, acta)
     _lista(lz, "Observaciones y/o recomendaciones", acta.observaciones)

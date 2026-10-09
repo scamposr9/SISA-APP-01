@@ -11,7 +11,9 @@ import json
 from dataclasses import dataclass, field
 from datetime import date, datetime, time
 
+from acta_app import balanzas
 from acta_app import preinstalacion as pre
+from acta_app.balanzas import PruebasBalanza
 from acta_app.models import Acta, ActividadChecklist, Articulo, ahora
 from acta_app.preinstalacion import Preinstalacion
 
@@ -25,6 +27,7 @@ class Borrador:
     # Actividades del checklist que el ingeniero quitó con × (protocolos repetidos).
     quitadas: list[str] = field(default_factory=list)
     preinstalacion: Preinstalacion | None = None  # apartados de Presite, si se eligió
+    pruebas_balanza: PruebasBalanza | None = None  # tabla de pruebas de una balanza
 
     @property
     def tiene_datos(self) -> bool:
@@ -80,6 +83,7 @@ def _datos(acta: Acta, quitadas: list[str] | None) -> dict:
         "nombre_representante": acta.nombre_representante,
         "quitadas": list(quitadas or []),
         "preinstalacion": pre.a_dict(acta.preinstalacion) if acta.preinstalacion is not None else None,
+        "pruebas_balanza": balanzas.a_dict(acta.pruebas_balanza) if acta.pruebas_balanza is not None else None,
     }
 
 
@@ -113,6 +117,9 @@ def desde_json(contenido: bytes) -> Borrador | None:
             nombre_representante=d.get("nombre_representante") or "",
         )
         presite = pre.desde_dict(d["preinstalacion"]) if d.get("preinstalacion") else None
-        return Borrador(acta, datetime.fromisoformat(d["guardado"]), list(d.get("quitadas") or []), presite)
+        if d.get("pruebas_balanza"):
+            acta.pruebas_balanza = balanzas.desde_dict(d["pruebas_balanza"])
+        return Borrador(acta, datetime.fromisoformat(d["guardado"]), list(d.get("quitadas") or []), presite,
+                        acta.pruebas_balanza)
     except (ValueError, KeyError, TypeError):
         return None

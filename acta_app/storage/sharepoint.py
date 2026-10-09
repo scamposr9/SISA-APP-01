@@ -26,7 +26,7 @@ from urllib.parse import quote, unquote, urlparse
 import pandas as pd
 from openpyxl import load_workbook
 
-from acta_app import config, equipos_nuevos, ingenieros, preinstalacion
+from acta_app import balanzas, config, equipos_nuevos, ingenieros, preinstalacion
 from acta_app.models import AccesoEncuesta, Acta, EncuestaSatisfaccion, ahora
 from acta_app.preinstalacion import Preinstalacion
 from acta_app.storage.base import (
@@ -36,6 +36,7 @@ from acta_app.storage.base import (
     ResultadoGuardado,
     normalizar_numero,
     copiar_encuesta,
+    fila_balanza,
     poner_encuesta,
     poner_acceso,
     validar_codigo,
@@ -110,6 +111,7 @@ class RepositorioSharePoint:
         self.ruta_firmas = f"{self.carpeta}/{CARPETA_FIRMAS}"
         self.ruta_borradores = f"{self.carpeta}/{config.SHAREPOINT_BORRADORES}"
         self.ruta_preinstalaciones = f"{self.carpeta}/{config.SHAREPOINT_PREINSTALACIONES}"
+        self.ruta_balanzas = f"{self.carpeta}/{config.SHAREPOINT_BALANZAS}"
         self.ruta_pdf_preinstalaciones = f"{self.carpeta}/{config.SHAREPOINT_CARPETA_PDF_PREINSTALACIONES}"
         self.ruta_equipos = f"{self.carpeta}/{equipos}"
         self.ruta_equipos_nuevos = f"{self.carpeta}/{equipos_nuevos}"
@@ -424,6 +426,26 @@ class RepositorioSharePoint:
         raise AlmacenamientoError(
             f"No se pudo actualizar {config.SHAREPOINT_PREINSTALACIONES} (está cambiando o abierto en edición)."
         )
+
+    # ---------- Balanzas ----------
+    def registrar_balanza(self, acta: Acta, nombre_pdf: str, enlace_pdf: str) -> int:
+        fila = fila_balanza(acta, nombre_pdf, enlace_pdf)
+        for _ in range(INTENTOS_POR_CONFLICTO):
+            archivo = self.almacen.leer(self.ruta_balanzas)
+            contenido, total = balanzas.registrar(archivo.datos if archivo else None, fila)
+            try:
+                self.almacen.escribir(self.ruta_balanzas, contenido,
+                                      version_esperada=archivo.version if archivo else None,
+                                      solo_si_no_existe=archivo is None)
+                return total
+            except ConflictoDeVersion:
+                continue
+        raise AlmacenamientoError(f"No se pudo actualizar {config.SHAREPOINT_BALANZAS} (está cambiando o abierto en edición).")
+
+    def leer_pruebas_balanza(self, numero: str):
+        archivo = self.almacen.leer(self.ruta_balanzas)
+        fila = balanzas.buscar(balanzas.leer_filas(archivo.datos if archivo else None), numero)
+        return balanzas.pruebas_de_fila(fila) if fila else None
 
     # ---------- Borradores ----------
     def _ruta_borrador(self, usuario: str) -> str:

@@ -12,7 +12,7 @@ from pathlib import Path
 import pandas as pd
 from openpyxl import Workbook, load_workbook
 
-from acta_app import config, equipos_nuevos, ingenieros, preinstalacion
+from acta_app import balanzas, config, equipos_nuevos, ingenieros, preinstalacion
 from acta_app.models import AccesoEncuesta, Acta, EncuestaSatisfaccion, ahora
 from acta_app.preinstalacion import Preinstalacion
 from acta_app.storage.base import (
@@ -22,6 +22,7 @@ from acta_app.storage.base import (
     ResultadoGuardado,
     normalizar_numero,
     copiar_encuesta,
+    fila_balanza,
     poner_encuesta,
     poner_acceso,
     validar_codigo,
@@ -146,6 +147,24 @@ class RepositorioExcelLocal:
             contenido, total = preinstalacion.agregar(self.preinstalaciones_bytes(), p, nombre_pdf, "")
             self.ruta_preinstalaciones.write_bytes(contenido)
             return ResultadoGuardado(total_actas=total, ubicacion_pdf=str(carpeta_pdf / nombre_pdf))
+
+    # ---------- Balanzas ----------
+    @property
+    def ruta_balanzas(self) -> Path:
+        return self.ruta_excel.parent / "mantenimientos_balanzas.xlsx"
+
+    def registrar_balanza(self, acta: Acta, nombre_pdf: str, enlace_pdf: str) -> int:
+        with _LOCK:
+            ruta = self.ruta_balanzas
+            contenido, total = balanzas.registrar(ruta.read_bytes() if ruta.exists() else None,
+                                                  fila_balanza(acta, nombre_pdf, enlace_pdf))
+            ruta.write_bytes(contenido)
+            return total
+
+    def leer_pruebas_balanza(self, numero: str):
+        ruta = self.ruta_balanzas
+        fila = balanzas.buscar(balanzas.leer_filas(ruta.read_bytes() if ruta.exists() else None), numero)
+        return balanzas.pruebas_de_fila(fila) if fila else None
 
     # ---------- Borradores ----------
     def _ruta_borrador(self, usuario: str) -> Path:
