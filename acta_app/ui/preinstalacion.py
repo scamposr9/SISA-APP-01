@@ -149,28 +149,3 @@ def secciones() -> Preinstalacion:
     return p
 
 
-def precargar(p: Preinstalacion) -> None:
-    """Deja los apartados con estos datos (al recuperar un borrador; usar desde un callback)."""
-    s = st.session_state
-    s[k("punto_dedicado")] = None if p.punto_dedicado is None else ("Sí" if p.punto_dedicado else "No")
-    for tipo in p.tipos_toma:
-        s[k(f"toma_chk_{tipo}")] = True
-    for nombre, opciones, marcadas in (("traslado", pre.TRASLADOS, p.traslado),
-                                       ("complemento", pre.COMPLEMENTOS, p.complementos_faltantes)):
-        for i, opcion in enumerate(opciones):
-            s[k(f"{nombre}_{i}")] = opcion in marcadas
-    s[k("estibadores")] = p.estibadores
-    s[k("servicio")] = p.servicios[0] if p.servicios else None
-    s[k("tipo_laboratorio")] = p.tipo_laboratorio if p.tipo_laboratorio in pre.TIPOS_LABORATORIO else None
-    s[k("temperatura")] = p.temperatura
-    for superficie in pre.SUPERFICIES:
-        for medida in pre.MEDIDAS:
-            s[k(f"medida_{superficie}_{medida}")] = p.medida(superficie, medida)
-    accesos = p.accesos + [""] * max(0, pre.ACCESOS_INICIALES - len(p.accesos))
-    precargar_lista(k("accesos"), accesos)
-    precargar_lista(k("observaciones"), p.observaciones)
-    contactos = p.contactos_usados or [Contacto()]
-    s[k("contactos_ids")], s[k("contactos_contador")] = list(range(len(contactos))), len(contactos)
-    for i, c in enumerate(contactos):
-        s[k(f"contacto_nom_{i}")], s[k(f"contacto_car_{i}")], s[k(f"contacto_tel_{i}")] = c.nombre, c.cargo, c.telefono
-    s[k("realizado_por")] = p.realizado_por or (None if cargar_ingenieros() else "")

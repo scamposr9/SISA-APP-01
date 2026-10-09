@@ -148,10 +148,12 @@ salvo los complementos faltantes, que salen todos.
 
 ### Carpetas en SharePoint
 
-Dentro de la carpeta de actas (Ingeniería): `Base de Datos/` con `Equipos.xlsx`,
+Dentro de la carpeta configurada (Ingeniería): `Actas/` con `Actas.xlsx`, `PDF/` y `Firmas Actas/`;
+`Base de Datos/` con `Equipos.xlsx`,
 `Equipos_nuevos.xlsx`, `Repuestos.xlsx` y `Mantenimientos Preventivos.xlsx`, y `Preinstalaciones/`
 con `Preinstalaciones.xlsx` y `PDF Preinstalaciones/`. Si alguno de esos archivos sigue suelto en la
-carpeta de actas (ubicación anterior), la app lo usa ahí hasta que se mueva.
+carpeta configurada (ubicación anterior), la app lo usa ahí hasta que se mueva. Después de mover
+carpetas, «Conexión con SharePoint → Actualizar enlaces de PDF» corrige los enlaces de los Excel.
 
 ### Mantenimiento preventivo de balanzas
 
@@ -164,11 +166,6 @@ funcionamiento» del protocolo no sale en el checklist. El acta se guarda en `Ac
 siempre y además se copia, con las pruebas, a `Mantenimientos Balanzas.xlsx` (una corrección
 reemplaza su fila). El PDF lleva la tabla después de las acciones.
 
-### Borrador automático
-
-Mientras se llena un acta nueva, la app guarda un borrador (sin firmas) cada ~20 segundos en
-`Borradores/<cuenta>.json` dentro de la carpeta de actas, uno por usuario. Al volver a entrar con
-la misma cuenta, ofrece «Recuperar borrador» o «Descartar». El borrador se borra al guardar el acta.
 
 ### Inicio de sesión con Microsoft (opcional)
 

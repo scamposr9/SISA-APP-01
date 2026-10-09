@@ -1,6 +1,5 @@
 from acta_app import balanzas
 from acta_app.balanzas import PruebasBalanza
-from acta_app.borrador import a_json, desde_json
 from acta_app.pdf import generar_pdf
 from acta_app.storage.excel_local import RepositorioExcelLocal
 
@@ -44,8 +43,6 @@ def test_excel_de_balanzas_agrega_y_reemplaza_en_correccion(tmp_path, acta_compl
     assert repo.leer_pruebas_balanza("2026-99999") is None
 
 
-def test_pdf_y_borrador_con_pruebas(acta_completa):
+def test_pdf_con_pruebas(acta_completa):
     acta_completa.pruebas_balanza = _pruebas()
     assert generar_pdf(acta_completa).startswith(b"%PDF")
-    recuperada = desde_json(a_json(acta_completa)).acta.pruebas_balanza
-    assert recuperada == acta_completa.pruebas_balanza

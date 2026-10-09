@@ -7,11 +7,9 @@ import pandas as pd
 import streamlit as st
 
 from acta_app import balanzas, config
-from acta_app.borrador import Borrador
 from acta_app.catalogo import clave, limpiar
 from acta_app.models import Acta, ActividadChecklist, duracion, hoy, redondear_a_5_minutos
 from acta_app.ui.catalogo_ui import cargar_catalogo, cargar_ingenieros, cargar_protocolos, cargar_repuestos
-from acta_app.ui.preinstalacion import precargar as precargar_preinstalacion
 from acta_app.ui.preinstalacion import secciones as secciones_preinstalacion
 from acta_app.ui.components import (
     etiqueta,
@@ -61,20 +59,6 @@ def cargar_en_formulario(acta: Acta) -> None:
     _precargar(acta)
     # Checklist guardado: se conserva tal cual si no cambian marca ni modelo.
     st.session_state[k("checklist_guardado")] = [c.texto for c in acta.checklist]
-
-
-def cargar_borrador(borrador: Borrador) -> None:
-    """Llena el formulario con el borrador recuperado (usar desde un callback). Las firmas
-    no se guardan en el borrador: se firma de nuevo."""
-    limpiar_formulario()
-    _precargar(borrador.acta)
-    st.session_state[k("chk_quitadas")] = list(borrador.quitadas)
-    if borrador.preinstalacion is not None:
-        precargar_preinstalacion(borrador.preinstalacion)
-
-
-def actividades_quitadas() -> list[str]:
-    return list(st.session_state.get(k("chk_quitadas")) or [])
 
 
 def _es_balanza(acta: Acta) -> bool:

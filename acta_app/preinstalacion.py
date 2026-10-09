@@ -115,38 +115,6 @@ class Preinstalacion:
         return opcion
 
 
-def a_dict(p: Preinstalacion) -> dict:
-    """Apartados propios de la preinstalación, para el borrador (JSON)."""
-    return {
-        "punto_dedicado": p.punto_dedicado, "tipos_toma": p.tipos_toma, "traslado": p.traslado,
-        "estibadores": p.estibadores, "accesos": p.accesos, "servicios": p.servicios,
-        "tipo_laboratorio": p.tipo_laboratorio, "medidas": p.medidas,
-        "complementos_faltantes": p.complementos_faltantes, "temperatura": p.temperatura,
-        "contactos": [[c.nombre, c.cargo, c.telefono] for c in p.contactos_usados],
-        "observaciones": p.observaciones, "realizado_por": p.realizado_por,
-    }
-
-
-def desde_dict(d: dict) -> Preinstalacion:
-    return Preinstalacion(
-        punto_dedicado=d.get("punto_dedicado"),
-        tipos_toma=[t for t in d.get("tipos_toma") or [] if t in TIPOS_TOMA],
-        traslado=list(d.get("traslado") or []), estibadores=d.get("estibadores"),
-        accesos=list(d.get("accesos") or []), servicios=list(d.get("servicios") or []),
-        tipo_laboratorio=d.get("tipo_laboratorio") or "", medidas=dict(d.get("medidas") or {}),
-        complementos_faltantes=list(d.get("complementos_faltantes") or []),
-        temperatura=d.get("temperatura") or "",
-        contactos=[Contacto(*c) for c in d.get("contactos") or []],
-        observaciones=list(d.get("observaciones") or []), realizado_por=d.get("realizado_por") or "",
-    )
-
-
-def tiene_datos(p: Preinstalacion) -> bool:
-    d = a_dict(p)
-    d["medidas"] = [v for m in p.medidas.values() for v in m.values() if v is not None]
-    return any(v not in (None, "", [], {}) for v in d.values())
-
-
 def validar(p: Preinstalacion) -> list[str]:
     """Campos faltantes o inválidos (vacío = se puede guardar)."""
     errores = [nombre for nombre, valor in (

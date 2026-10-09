@@ -81,7 +81,7 @@ def repo(sp):
 
 
 def _fila(sp, n=1):
-    ws = load_workbook(io.BytesIO(sp.archivos[f"{CARPETA}/Actas.xlsx"][0]))["Actas"]
+    ws = load_workbook(io.BytesIO(sp.archivos[f"{CARPETA}/Actas/Actas.xlsx"][0]))["Actas"]
     return {ws.cell(2, c).value: ws.cell(2 + n, c) for c in range(1, ws.max_column + 1)}
 
 
@@ -89,10 +89,10 @@ def test_primera_acta_crea_actas_xlsx_y_sube_pdf_y_firmas(repo, sp, acta_complet
     resultado = repo.guardar(acta_completa, b"%PDF", "Acta_2026-00051.pdf")
 
     assert resultado.total_actas == 1
-    assert resultado.ubicacion_pdf == f"https://sp.example/{CARPETA}/PDF/Acta_2026-00051.pdf"
-    assert sp.archivos[f"{CARPETA}/PDF/Acta_2026-00051.pdf"][0] == b"%PDF"
-    assert f"{CARPETA}/Firmas Actas/2026-00051/cliente.png" in sp.archivos
-    assert f"{CARPETA}/Firmas Actas/2026-00051/representante.png" in sp.archivos
+    assert resultado.ubicacion_pdf == f"https://sp.example/{CARPETA}/Actas/PDF/Acta_2026-00051.pdf"
+    assert sp.archivos[f"{CARPETA}/Actas/PDF/Acta_2026-00051.pdf"][0] == b"%PDF"
+    assert f"{CARPETA}/Actas/Firmas Actas/2026-00051/cliente.png" in sp.archivos
+    assert f"{CARPETA}/Actas/Firmas Actas/2026-00051/representante.png" in sp.archivos
     fila = _fila(sp)
     assert fila["N° de Acta"].value == "2026-00051"
     assert _enlace(fila["PDF original"]) == resultado.ubicacion_pdf
@@ -141,7 +141,7 @@ def test_corregir_actualiza_la_fila_y_conserva_el_pdf_original(repo, sp, acta_co
     assert fila["Cliente"].value == "Cliente corregido"
     assert _enlace(fila["PDF original"]).endswith("/PDF/Acta_2026-00051.pdf")
     assert _enlace(fila["PDF corregido"]).endswith("/PDF/Acta_2026-00051_Rev1.pdf")
-    assert sp.archivos[f"{CARPETA}/PDF/Acta_2026-00051.pdf"][0] == b"%PDF orig"
+    assert sp.archivos[f"{CARPETA}/Actas/PDF/Acta_2026-00051.pdf"][0] == b"%PDF orig"
 
 
 def test_catalogo_y_enlaces(repo, sp):
@@ -222,7 +222,7 @@ def test_graph_sin_permiso_en_el_sitio_explica_que_falta(graph):
     falso, almacen = graph
     falso.respuestas[("PUT", "/content")] = Respuesta(403, {"error": "accessDenied"})
     with pytest.raises(AlmacenamientoError, match="Sites.Selected"):
-        almacen.escribir(f"{CARPETA}/PDF/a.pdf", b"x")
+        almacen.escribir(f"{CARPETA}/Actas/PDF/a.pdf", b"x")
 
 
 def test_graph_archivo_inexistente_devuelve_none(graph):
@@ -234,7 +234,7 @@ def test_graph_archivo_inexistente_devuelve_none(graph):
 def test_tenant_invalido_da_un_error_claro_y_no_rompe_la_app():
     almacen = AlmacenGraph("tenant-que-no-existe", "c", "s", sesion=GraphFalso())
     with pytest.raises(AlmacenamientoError, match="tenant_id"):
-        almacen.leer(f"{CARPETA}/Actas.xlsx")
+        almacen.leer(f"{CARPETA}/Actas/Actas.xlsx")
 
 
 def _enlace(celda):
@@ -324,7 +324,7 @@ def test_encuesta_se_guarda_en_la_fila_y_crea_sus_columnas(repo, sp, acta_comple
          "Orden y limpieza al terminar", "Eficiencia en el trabajo"], 5)
     repo.guardar_encuesta("2026-00051", EncuestaSatisfaccion(puntajes, "Muy buen servicio"))
 
-    ws = load_workbook(io.BytesIO(sp.archivos[f"{CARPETA}/Actas.xlsx"][0]))["Actas"]
+    ws = load_workbook(io.BytesIO(sp.archivos[f"{CARPETA}/Actas/Actas.xlsx"][0]))["Actas"]
     encabezados = [c.value for c in ws[2]]
     inicio = encabezados.index("Puntualidad del trabajador")
     assert encabezados[inicio - 1] == "PDF corregido"
@@ -425,16 +425,6 @@ def test_imagen_del_qr_es_un_png():
     assert png.startswith(b"\x89PNG")
 
 
-def test_borrador_en_sharepoint_por_usuario(repo, sp, acta_completa):
-    from acta_app.borrador import a_json, desde_json
-
-    repo.guardar_borrador("scampos@sistemasanaliticos.com", a_json(acta_completa))
-    assert f"{CARPETA}/Borradores/scampos_sistemasanaliticos_com.json" in sp.archivos
-    assert desde_json(repo.leer_borrador("scampos@sistemasanaliticos.com")).acta.cliente == acta_completa.cliente
-    repo.borrar_borrador("scampos@sistemasanaliticos.com")
-    assert repo.leer_borrador("scampos@sistemasanaliticos.com") is None
-
-
 def test_catalogos_en_base_de_datos_o_en_la_ubicacion_anterior(sp):
     repo = RepositorioSharePoint(sp, carpeta=CARPETA, segundos_cache=0)
     sp.archivos[f"{CARPETA}/Repuestos.xlsx"] = (b"viejo", 1)  # aún sin mover
@@ -444,3 +434,23 @@ def test_catalogos_en_base_de_datos_o_en_la_ubicacion_anterior(sp):
     assert repo.leer_repuestos() == b"nuevo"
     sp.archivos[f"{CARPETA}/Base de Datos/Mantenimientos Preventivos.xlsx"] = (b"mp", 1)
     assert repo.leer_protocolos() == b"mp"
+
+
+def test_actas_en_subcarpeta_actas_o_en_la_ubicacion_anterior(sp, acta_completa):
+    sp.archivos[f"{CARPETA}/Actas.xlsx"] = (b"viejo", 1)  # aún sin mover
+    assert RepositorioSharePoint(sp, carpeta=CARPETA).ruta_excel == f"{CARPETA}/Actas.xlsx"
+    sp.archivos[f"{CARPETA}/Actas/Actas.xlsx"] = sp.archivos.pop(f"{CARPETA}/Actas.xlsx")  # ya movido
+    repo = RepositorioSharePoint(sp, carpeta=CARPETA)
+    assert repo.ruta_excel == f"{CARPETA}/Actas/Actas.xlsx"
+    assert repo.ruta_pdf == f"{CARPETA}/Actas/PDF"  # todavía no existe: va en la subcarpeta
+
+
+def test_actualizar_enlaces_pdf_tras_mover_carpetas(repo, sp, acta_completa):
+    sp._url = lambda ruta: f"https://viejo.example/{ruta}"  # enlaces de antes de mover
+    repo.guardar(acta_completa, b"%PDF", "Acta_2026-00051.pdf")
+    assert "viejo.example" in _enlace(_fila(sp)["PDF original"])
+    sp._url = lambda ruta: f"https://sp.example/{ruta}"  # dirección actual
+    resumen = repo.actualizar_enlaces_pdf()
+    assert resumen[0] == "Actas.xlsx: 1 enlace(s) actualizado(s)."
+    assert _enlace(_fila(sp)["PDF original"]) == f"https://sp.example/{CARPETA}/Actas/PDF/Acta_2026-00051.pdf"
+    assert repo.actualizar_enlaces_pdf()[0] == "Actas.xlsx: 0 enlace(s) actualizado(s)."

@@ -166,23 +166,6 @@ class RepositorioExcelLocal:
         fila = balanzas.buscar(balanzas.leer_filas(ruta.read_bytes() if ruta.exists() else None), numero)
         return balanzas.pruebas_de_fila(fila) if fila else None
 
-    # ---------- Borradores ----------
-    def _ruta_borrador(self, usuario: str) -> Path:
-        seguro = "".join(ch if ch.isalnum() or ch == "-" else "_" for ch in usuario)
-        return self.ruta_excel.parent / "borradores" / f"{seguro}.json"
-
-    def leer_borrador(self, usuario: str) -> bytes | None:
-        ruta = self._ruta_borrador(usuario)
-        return ruta.read_bytes() if ruta.exists() else None
-
-    def guardar_borrador(self, usuario: str, datos: bytes) -> None:
-        ruta = self._ruta_borrador(usuario)
-        ruta.parent.mkdir(parents=True, exist_ok=True)
-        ruta.write_bytes(datos)
-
-    def borrar_borrador(self, usuario: str) -> None:
-        self._ruta_borrador(usuario).unlink(missing_ok=True)
-
     def registrar_equipo_nuevo(self, acta: Acta, registrado_por: str) -> bool:
         with _LOCK:
             contenido = equipos_nuevos.agregar(self.leer_equipos_nuevos(), acta, registrado_por)

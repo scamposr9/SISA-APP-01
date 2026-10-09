@@ -3,7 +3,6 @@
 import streamlit as st
 
 from acta_app import config
-from acta_app.borrador import Borrador, a_json, desde_json, huella, tiene_datos
 from acta_app import balanzas, preinstalacion
 from acta_app.models import Acta, ahora
 from acta_app.pdf.preinstalacion import generar_pdf as generar_pdf_preinstalacion
@@ -30,8 +29,6 @@ from acta_app.ui.encuesta import (
 )
 from acta_app.ui.form import (
     acta_en_correccion,
-    actividades_quitadas,
-    cargar_borrador,
     cargar_en_formulario,
     formulario_acta,
     k,
@@ -83,15 +80,6 @@ def puede_corregir() -> bool:
     exista, los de `desarrolladores`."""
     return _en_lista("correctores", "desarrolladores")
 
-
-def usuario_borrador() -> str:
-    """Dueño del borrador: la cuenta con la que se inició sesión ("local" sin inicio de sesión)."""
-    try:
-        if "auth" in st.secrets and st.user.is_logged_in:
-            return correo_usuario() or "local"
-    except Exception:  # sin archivo de Secrets
-        pass
-    return "local"
 
 
 def correo_permitido(correo: str) -> bool:
@@ -494,6 +482,10 @@ def seccion_conexion() -> None:
             st.success("Se volverá a leer Equipos.xlsx de SharePoint.", icon="✅")
         with st.popover("QR de la encuesta de un acta guardada", width="stretch"):
             qr_de_otra_acta()
+        if st.button("Actualizar enlaces de PDF (después de mover carpetas)", width="stretch"):
+            with st.spinner("Buscando cada PDF en su carpeta actual…"):
+                for linea in obtener_repositorio().actualizar_enlaces_pdf():
+                    st.info(linea, icon="🔗")
         if st.button("Ver repuestos detectados (Repuestos.xlsx)", width="stretch"):
             mostrar_repuestos()
         if st.button("Ver protocolos de mantenimiento preventivo detectados", width="stretch"):
@@ -523,98 +515,6 @@ else:
 banner = st.empty()
 
 
-# ---------- Borrador automático (solo actas nuevas) ----------
-BORRADOR_REVISADO = "borrador_revisado"  # ya se ofreció recuperar el borrador en esta sesión
-BORRADOR_PENDIENTE = "borrador_pendiente"  # (huella, JSON) del formulario actual
-BORRADOR_GUARDADO = "borrador_guardado"  # (huella, hora) del último borrador subido
-FORMULARIO_GUARDADO = "formulario_guardado"  # formulario cuya acta ya se guardó
-SEGUNDOS_ENTRE_BORRADORES = 15
-
-
-def _recuperar_borrador(borrador: Borrador) -> None:
-    cargar_borrador(borrador)
-    st.session_state[BORRADOR_REVISADO] = True
-
-
-def _descartar_borrador() -> None:
-    st.session_state[BORRADOR_REVISADO] = True
-    try:
-        obtener_repositorio().borrar_borrador(usuario_borrador())
-    except AlmacenamientoError:
-        pass
-
-
-def ofrecer_borrador() -> None:
-    """Al entrar, si quedó un acta sin guardar de esta cuenta, ofrece recuperarla."""
-    if st.session_state.get(BORRADOR_REVISADO):
-        return
-    try:
-        datos = obtener_repositorio().leer_borrador(usuario_borrador())
-    except AlmacenamientoError:
-        datos = None
-    borrador = desde_json(datos) if datos else None
-    if borrador is None or not borrador.tiene_datos:
-        st.session_state[BORRADOR_REVISADO] = True
-        return
-    numero = f" N.° {borrador.acta.numero}" if borrador.acta.numero else ""
-    detalle = " · ".join(v for v in (borrador.acta.cliente, borrador.acta.equipo) if v)
-    with st.container(border=True):
-        st.markdown(
-            f"**Tienes un acta{numero} sin guardar** del {borrador.guardado:%d/%m/%Y a las %H:%M}"
-            + (f" ({detalle})" if detalle else "") + "."
-        )
-        st.caption("Las firmas no se guardan en el borrador: al recuperarlo hay que firmar de nuevo. "
-                   "Si empiezas otra acta sin recuperarlo, el borrador se reemplazará.")
-        c1, c2 = st.columns(2)
-        c1.button("Recuperar borrador", type="primary", width="stretch",
-                  on_click=_recuperar_borrador, args=(borrador,))
-        c2.button("Descartar", width="stretch", on_click=_descartar_borrador)
-
-
-@st.fragment(run_every=20)
-def autoguardado() -> None:
-    """Sube el borrador del formulario si cambió (como mucho cada 15 segundos; el
-    temporizador sube los últimos cambios aunque no se toque nada más)."""
-    pendiente = st.session_state.get(BORRADOR_PENDIENTE)
-    guardado = st.session_state.get(BORRADOR_GUARDADO)
-    if pendiente is not None and (guardado is None or guardado[0] != pendiente[0]):
-        reciente = guardado is not None and (ahora() - guardado[1]).total_seconds() < SEGUNDOS_ENTRE_BORRADORES
-        if not reciente:
-            try:
-                obtener_repositorio().guardar_borrador(usuario_borrador(), pendiente[1])
-            except AlmacenamientoError:
-                st.caption("⚠️ No se pudo guardar el borrador automático; se reintentará.")
-                return
-            guardado = (pendiente[0], ahora())
-            st.session_state[BORRADOR_GUARDADO] = guardado
-            st.session_state[BORRADOR_REVISADO] = True  # el borrador anterior ya se reemplazó
-    if guardado is not None and pendiente is not None:
-        st.caption(f"💾 Borrador guardado automáticamente a las {guardado[1]:%H:%M} (sin firmas).")
-
-
-def anotar_borrador(acta: Acta) -> None:
-    """Deja el formulario actual listo para que `autoguardado` lo suba."""
-    if st.session_state.get(FORMULARIO_GUARDADO) == k("") or not tiene_datos(acta):
-        st.session_state.pop(BORRADOR_PENDIENTE, None)
-        return
-    st.session_state[BORRADOR_PENDIENTE] = (huella(acta, actividades_quitadas()),
-                                            a_json(acta, actividades_quitadas()))
-
-
-def borrar_borrador_guardado() -> None:
-    """El acta ya se guardó: su borrador ya no hace falta."""
-    st.session_state[FORMULARIO_GUARDADO] = k("")
-    for clave in (BORRADOR_PENDIENTE, BORRADOR_GUARDADO):
-        st.session_state.pop(clave, None)
-    try:
-        obtener_repositorio().borrar_borrador(usuario_borrador())
-    except AlmacenamientoError:
-        pass
-
-
-if modo == MODO_NUEVA:
-    ofrecer_borrador()
-
 original = selector_correccion() if modo == MODO_CORREGIR else None
 if modo == MODO_CORREGIR and original is None:
     acta = None
@@ -622,15 +522,11 @@ else:
     acta = formulario_acta()
     if original is not None:
         acta = aplicar_datos_de_correccion(acta, original)
-    else:
-        anotar_borrador(acta)
     col_ver, col_guardar = st.columns(2)
     ver_fila = col_ver.button("Ver fila de datos", key="btn_ver_fila", width="stretch")
     texto_guardar = ("Guardar corrección" if original is not None
                      else "Guardar preinstalación" if acta.preinstalacion is not None else "Guardar acta")
     guardar = col_guardar.button(texto_guardar, key="btn_guardar", width="stretch")
-    if original is None:
-        autoguardado()
 
 
 def aviso(tipo: str, mensaje: str) -> None:
@@ -690,7 +586,6 @@ def guardar_preinstalacion(acta: Acta) -> None:
         aviso("error", str(exc))
     else:
         banner.success(f"Reporte de preinstalación N.° {p.numero} guardado correctamente.", icon="✅")
-        borrar_borrador_guardado()
         dialogo_preinstalacion(p, pdf, nombre_pdf, resultado.total_actas, resultado.ubicacion_pdf)
 
 
@@ -726,7 +621,6 @@ def guardar_acta_nueva(acta: Acta) -> None:
         aviso("error", str(exc))
     else:
         banner.success(f"Acta N.° {acta.numero} guardada correctamente.", icon="✅")
-        borrar_borrador_guardado()
         copiar_a_balanzas(acta, nombre_pdf, resultado.ubicacion_pdf)
         anotar_si_es_equipo_nuevo(acta)
         dialogo_guardado(acta, pdf, nombre_pdf, resultado.total_actas, resultado.ubicacion_pdf)

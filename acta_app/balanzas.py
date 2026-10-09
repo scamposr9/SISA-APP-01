@@ -68,16 +68,6 @@ def numero(v: float | None) -> str:
     return "" if v is None else f"{v:g}"
 
 
-def a_dict(p: PruebasBalanza) -> dict:
-    return {"mostrados": p.mostrados, "ajustados": p.ajustados}
-
-
-def desde_dict(d: dict) -> PruebasBalanza:
-    n = len(PESOS_REQUERIDOS)
-    ajustar = lambda vs: (list(vs or []) + [None] * n)[:n]  # noqa: E731
-    return PruebasBalanza(ajustar(d.get("mostrados")), ajustar(d.get("ajustados")))
-
-
 # ---------- Excel «Mantenimientos Balanzas.xlsx» ----------
 HOJA = "Balanzas"
 TABLA = "TablaBalanzas"
@@ -130,10 +120,10 @@ def registrar(contenido: bytes | None, fila: dict[str, object]) -> tuple[bytes, 
         filas[filas.index(anterior)] = fila
     else:
         filas.append(fila)
-    return _libro(filas), len(filas)
+    return construir_libro(filas), len(filas)
 
 
-def _libro(filas: list[dict[str, object]]) -> bytes:
+def construir_libro(filas: list[dict[str, object]]) -> bytes:
     # Columnas: las del acta en su orden y, al final, las de las pruebas y el PDF.
     pruebas = columnas_pruebas()
     columnas: list[str] = []

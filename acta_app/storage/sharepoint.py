@@ -1,13 +1,18 @@
 """Actas en SharePoint: Excel maestro (Actas.xlsx), PDFs, firmas y catálogo de equipos.
 
-Estructura en la carpeta configurada (por defecto «16. Analisis de Datos/Actas»):
+Estructura dentro de la carpeta configurada (en los Secrets; hoy «…/Ingeniería»):
 
-    Actas.xlsx        Excel maestro (lo crea la app al guardar la primera acta)
-    Equipos.xlsx      catálogo para el autocompletado (lo mantiene el equipo)
-    PDF/              un PDF por acta y por revisión
-    Firmas Actas/<N.°>/  cliente.png y representante.png de cada acta (para corregirla)
-    Borradores/       acta a medio llenar de cada usuario (se borra al guardarla)
-    Preinstalaciones.xlsx y PDF Preinstalaciones/   reportes de preinstalación (Presite)
+    Actas/
+        Actas.xlsx            Excel maestro (lo crea la app al guardar la primera acta)
+        PDF/                  un PDF por acta y por revisión
+        Firmas Actas/<N.°>/   cliente.png y representante.png de cada acta (para corregirla)
+    Base de Datos/            Equipos.xlsx, Equipos_nuevos.xlsx, Repuestos.xlsx y
+                              Mantenimientos Preventivos.xlsx
+    Preinstalaciones/         Preinstalaciones.xlsx y PDF Preinstalaciones/ (Presite)
+    Mantenimientos Balanzas.xlsx
+
+Si un archivo todavía está suelto en la carpeta configurada (ubicación anterior), se usa
+ahí hasta que se mueva a su subcarpeta.
 
 `RepositorioSharePoint` solo necesita un `AlmacenArchivos` (leer/escribir archivos con
 control de versión). `AlmacenGraph` lo implementa con Microsoft Graph usando la
@@ -41,7 +46,9 @@ from acta_app.storage.base import (
     poner_acceso,
     validar_codigo,
 )
+from acta_app.storage.excel_formato import formula_hipervinculo, leer_hipervinculo
 from acta_app.storage.esquema import (
+    COLUMNAS_PDF,
     COLUMNA_PDF_CORREGIDO,
     COLUMNA_PDF_ORIGINAL,
     Registro,
@@ -106,16 +113,14 @@ class RepositorioSharePoint:
     ):
         self.almacen = almacen
         self.carpeta = carpeta.strip("/")
-        self.ruta_excel = f"{self.carpeta}/{excel}"
-        self.ruta_pdf = f"{self.carpeta}/{carpeta_pdf}"
-        self.ruta_firmas = f"{self.carpeta}/{CARPETA_FIRMAS}"
-        self.ruta_borradores = f"{self.carpeta}/{config.SHAREPOINT_BORRADORES}"
         self.ruta_balanzas = f"{self.carpeta}/{config.SHAREPOINT_BALANZAS}"
         # (ubicación actual, ubicación anterior): ver `_ruta`.
         base, pre = config.SHAREPOINT_CARPETA_BASE_DATOS, config.SHAREPOINT_CARPETA_PREINSTALACIONES
+        actas = config.SHAREPOINT_CARPETA_ACTAS
         self._ubicaciones = {
             nombre: (f"{self.carpeta}/{subcarpeta}/{archivo}", f"{self.carpeta}/{archivo}")
             for nombre, subcarpeta, archivo in (
+                ("excel", actas, excel), ("pdf", actas, carpeta_pdf), ("firmas", actas, CARPETA_FIRMAS),
                 ("equipos", base, equipos), ("equipos_nuevos", base, equipos_nuevos),
                 ("protocolos", base, protocolos), ("repuestos", base, repuestos),
                 ("preinstalaciones", pre, config.SHAREPOINT_PREINSTALACIONES),
@@ -137,7 +142,7 @@ class RepositorioSharePoint:
 
     # ---------- Ubicación de catálogos y preinstalaciones ----------
     def _ruta(self, nombre: str) -> str:
-        """Ruta en su subcarpeta («Base de Datos», «Preinstalaciones») o, si todavía no se movió
+        """Ruta en su subcarpeta («Actas», «Base de Datos», «Preinstalaciones») o, si todavía no se movió
         allí y sigue en la ubicación anterior (suelto en la carpeta de actas), esa. Lo nuevo
         se crea en la subcarpeta. Se recuerda un minuto para no consultar en cada uso."""
         guardada = self._elegidas.get(nombre)
@@ -153,6 +158,9 @@ class RepositorioSharePoint:
         self._elegidas[nombre] = (time.monotonic(), ruta)
         return ruta
 
+    ruta_excel = property(lambda self: self._ruta("excel"))
+    ruta_pdf = property(lambda self: self._ruta("pdf"))
+    ruta_firmas = property(lambda self: self._ruta("firmas"))
     ruta_equipos = property(lambda self: self._ruta("equipos"))
     ruta_equipos_nuevos = property(lambda self: self._ruta("equipos_nuevos"))
     ruta_protocolos = property(lambda self: self._ruta("protocolos"))
@@ -458,6 +466,57 @@ class RepositorioSharePoint:
             f"No se pudo actualizar {config.SHAREPOINT_PREINSTALACIONES} (está cambiando o abierto en edición)."
         )
 
+    # ---------- Enlaces a los PDF tras mover carpetas ----------
+    def actualizar_enlaces_pdf(self) -> list[str]:
+        """Si se movieron carpetas en SharePoint, los enlaces a los PDF guardados en los Excel
+        dejan de funcionar. Vuelve a buscar cada PDF por su nombre en su carpeta actual y
+        corrige el enlace en Actas.xlsx, Preinstalaciones.xlsx y Mantenimientos Balanzas.xlsx.
+        Devuelve un resumen por archivo."""
+        resumen = []
+        with self._lock:
+            for _ in range(INTENTOS_POR_CONFLICTO):
+                excel = self._excel(fresco=True)
+                registros = self._leer(excel)
+                cambios = 0
+                for r in registros:
+                    for columna in COLUMNAS_PDF:
+                        nombre = str(r.valores.get(columna) or "").strip()
+                        enlace = self.almacen.enlace(f"{self.ruta_pdf}/{nombre}") if nombre else None
+                        if enlace and r.enlaces.get(columna) != enlace:
+                            r.enlaces[columna] = enlace
+                            cambios += 1
+                if not cambios or self._escribir_excel(registros, excel):
+                    resumen.append(f"{config.SHAREPOINT_EXCEL}: {cambios} enlace(s) actualizado(s).")
+                    break
+            else:
+                resumen.append(f"{config.SHAREPOINT_EXCEL}: no se pudo actualizar (está cambiando); inténtalo de nuevo.")
+        for ruta_excel, carpeta_pdf, leer, construir, columna in (
+            (self.ruta_preinstalaciones, self.ruta_pdf_preinstalaciones, preinstalacion.leer_filas,
+             preinstalacion.construir_libro, preinstalacion.COLUMNA_PDF),
+            (self.ruta_balanzas, self.ruta_pdf, balanzas.leer_filas, balanzas.construir_libro, balanzas.COLUMNA_PDF),
+        ):
+            archivo = self.almacen.leer(ruta_excel)
+            if archivo is None:
+                continue
+            filas = leer(archivo.datos)
+            cambios = 0
+            for fila in filas:
+                actual = str(fila.get(columna) or "")
+                nombre = (leer_hipervinculo(actual) or ("", actual))[1].strip()
+                enlace = self.almacen.enlace(f"{carpeta_pdf}/{nombre}") if nombre else None
+                nuevo = formula_hipervinculo(enlace, nombre) if enlace else None
+                if nuevo and nuevo != actual:
+                    fila[columna] = nuevo
+                    cambios += 1
+            nombre_excel = ruta_excel.rsplit("/", 1)[-1]
+            try:
+                if cambios:
+                    self.almacen.escribir(ruta_excel, construir(filas), version_esperada=archivo.version)
+                resumen.append(f"{nombre_excel}: {cambios} enlace(s) actualizado(s).")
+            except ConflictoDeVersion:
+                resumen.append(f"{nombre_excel}: no se pudo actualizar (está cambiando); inténtalo de nuevo.")
+        return resumen
+
     # ---------- Balanzas ----------
     def registrar_balanza(self, acta: Acta, nombre_pdf: str, enlace_pdf: str) -> int:
         fila = fila_balanza(acta, nombre_pdf, enlace_pdf)
@@ -477,20 +536,6 @@ class RepositorioSharePoint:
         archivo = self.almacen.leer(self.ruta_balanzas)
         fila = balanzas.buscar(balanzas.leer_filas(archivo.datos if archivo else None), numero)
         return balanzas.pruebas_de_fila(fila) if fila else None
-
-    # ---------- Borradores ----------
-    def _ruta_borrador(self, usuario: str) -> str:
-        return f"{self.ruta_borradores}/{_nombre_seguro(usuario)}.json"
-
-    def leer_borrador(self, usuario: str) -> bytes | None:
-        archivo = self.almacen.leer(self._ruta_borrador(usuario))
-        return archivo.datos if archivo else None
-
-    def guardar_borrador(self, usuario: str, datos: bytes) -> None:
-        self.almacen.escribir(self._ruta_borrador(usuario), datos)
-
-    def borrar_borrador(self, usuario: str) -> None:
-        self.almacen.eliminar(self._ruta_borrador(usuario))
 
     def _subir(self, ruta: str, datos: bytes) -> str:
         return self.almacen.escribir(ruta, datos) or self.almacen.enlace(ruta) or ""
