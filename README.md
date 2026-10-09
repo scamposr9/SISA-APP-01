@@ -148,7 +148,7 @@ salvo los complementos faltantes, que salen todos.
 
 ### Carpetas en SharePoint
 
-Dentro de la carpeta configurada (Ingeniería): `Actas/` con `Actas.xlsx`, `PDF/` y `Firmas Actas/`;
+Dentro de la carpeta configurada (Ingeniería): `Actas/` con `Actas.xlsx`, `PDF/`, `Firmas Actas/` y `Mantenimientos Balanzas.xlsx`;
 `Base de Datos/` con `Equipos.xlsx`,
 `Equipos_nuevos.xlsx`, `Repuestos.xlsx` y `Mantenimientos Preventivos.xlsx`, y `Preinstalaciones/`
 con `Preinstalaciones.xlsx` y `PDF Preinstalaciones/`. Si alguno de esos archivos sigue suelto en la
@@ -163,7 +163,7 @@ funcionamiento»: la tabla Equipment Details con los pesos de referencia fijos (
 100 a 2500 gm) y, para cada uno, lo que mostró la balanza (Displayed Weight) y la lectura tras el
 ajuste (Adjustment Weight); todas las casillas son obligatorias. La actividad «Pruebas de
 funcionamiento» del protocolo no sale en el checklist. El acta se guarda en `Actas.xlsx` como
-siempre y además se copia, con las pruebas, a `Mantenimientos Balanzas.xlsx` (una corrección
+siempre y además se copia, con las pruebas, a `Actas/Mantenimientos Balanzas.xlsx` (una corrección
 reemplaza su fila). El PDF lleva la tabla después de las acciones.
 
 

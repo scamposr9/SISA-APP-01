@@ -6,10 +6,10 @@ Estructura dentro de la carpeta configurada (en los Secrets; hoy «…/Ingenier�
         Actas.xlsx            Excel maestro (lo crea la app al guardar la primera acta)
         PDF/                  un PDF por acta y por revisión
         Firmas Actas/<N.°>/   cliente.png y representante.png de cada acta (para corregirla)
+        Mantenimientos Balanzas.xlsx   actas de balanzas con sus pruebas de funcionamiento
     Base de Datos/            Equipos.xlsx, Equipos_nuevos.xlsx, Repuestos.xlsx y
                               Mantenimientos Preventivos.xlsx
     Preinstalaciones/         Preinstalaciones.xlsx y PDF Preinstalaciones/ (Presite)
-    Mantenimientos Balanzas.xlsx
 
 Si un archivo todavía está suelto en la carpeta configurada (ubicación anterior), se usa
 ahí hasta que se mueva a su subcarpeta.
@@ -113,7 +113,6 @@ class RepositorioSharePoint:
     ):
         self.almacen = almacen
         self.carpeta = carpeta.strip("/")
-        self.ruta_balanzas = f"{self.carpeta}/{config.SHAREPOINT_BALANZAS}"
         # (ubicación actual, ubicación anterior): ver `_ruta`.
         base, pre = config.SHAREPOINT_CARPETA_BASE_DATOS, config.SHAREPOINT_CARPETA_PREINSTALACIONES
         actas = config.SHAREPOINT_CARPETA_ACTAS
@@ -121,6 +120,7 @@ class RepositorioSharePoint:
             nombre: (f"{self.carpeta}/{subcarpeta}/{archivo}", f"{self.carpeta}/{archivo}")
             for nombre, subcarpeta, archivo in (
                 ("excel", actas, excel), ("pdf", actas, carpeta_pdf), ("firmas", actas, CARPETA_FIRMAS),
+                ("balanzas", actas, config.SHAREPOINT_BALANZAS),
                 ("equipos", base, equipos), ("equipos_nuevos", base, equipos_nuevos),
                 ("protocolos", base, protocolos), ("repuestos", base, repuestos),
                 ("preinstalaciones", pre, config.SHAREPOINT_PREINSTALACIONES),
@@ -161,6 +161,7 @@ class RepositorioSharePoint:
     ruta_excel = property(lambda self: self._ruta("excel"))
     ruta_pdf = property(lambda self: self._ruta("pdf"))
     ruta_firmas = property(lambda self: self._ruta("firmas"))
+    ruta_balanzas = property(lambda self: self._ruta("balanzas"))
     ruta_equipos = property(lambda self: self._ruta("equipos"))
     ruta_equipos_nuevos = property(lambda self: self._ruta("equipos_nuevos"))
     ruta_protocolos = property(lambda self: self._ruta("protocolos"))

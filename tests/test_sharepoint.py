@@ -454,3 +454,13 @@ def test_actualizar_enlaces_pdf_tras_mover_carpetas(repo, sp, acta_completa):
     assert resumen[0] == "Actas.xlsx: 1 enlace(s) actualizado(s)."
     assert _enlace(_fila(sp)["PDF original"]) == f"https://sp.example/{CARPETA}/Actas/PDF/Acta_2026-00051.pdf"
     assert repo.actualizar_enlaces_pdf()[0] == "Actas.xlsx: 0 enlace(s) actualizado(s)."
+
+
+def test_balanzas_en_la_subcarpeta_actas(sp, acta_completa):
+    from acta_app.balanzas import PESOS_REQUERIDOS, PruebasBalanza
+
+    repo = RepositorioSharePoint(sp, carpeta=CARPETA, segundos_cache=0)
+    acta_completa.pruebas_balanza = PruebasBalanza([1.0] * len(PESOS_REQUERIDOS), [1.0] * len(PESOS_REQUERIDOS))
+    repo.registrar_balanza(acta_completa, "Acta_2026-00051.pdf", "")
+    assert f"{CARPETA}/Actas/Mantenimientos Balanzas.xlsx" in sp.archivos
+    assert repo.leer_pruebas_balanza("2026-00051").mostrados[0] == 1.0
