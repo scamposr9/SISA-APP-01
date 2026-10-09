@@ -231,9 +231,11 @@ def _detalles(lz: _Lienzo, p: Preinstalacion) -> None:
 
 def _tipo_area(lz: _Lienzo, p: Preinstalacion) -> None:
     _seccion(lz, "Tipo de Área")
-    n, ancho = len(SERVICIOS_AREA), 31
+    n, ancho = len(SERVICIOS_AREA), 34
     laboratorio = SERVICIO_LABORATORIO in p.servicios
-    _fila(lz, [Celda(ANCHO_ETIQUETA, "Servicio", negrita=True), *_opciones(p.servicios, n, ancho),
+    # Como en el Word: todos los servicios con su casilla; X solo en el elegido.
+    _fila(lz, [Celda(ANCHO_ETIQUETA, "Servicio", negrita=True),
+               *[Celda(ancho, s, casilla=s in p.servicios) for s in SERVICIOS_AREA],
                Celda(ANCHO_DATOS - n * ancho, f"Tipo de Laboratorio: {p.tipo_laboratorio}" if laboratorio else "")])
 
     def valor(superficie: str, medida: str) -> str:

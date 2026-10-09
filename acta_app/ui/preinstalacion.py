@@ -109,9 +109,12 @@ def secciones() -> Preinstalacion:
         p.accesos = lista_dinamica(k("accesos"), "Opción {n}")
 
     with seccion("pre_area", "Tipo de área"):
-        p.servicios = _marcar(pre.SERVICIOS_AREA, "servicio", columnas=3)
-        if pre.SERVICIO_LABORATORIO in p.servicios:
-            p.tipo_laboratorio = st.text_input("Tipo de laboratorio", key=k("tipo_laboratorio")).strip()
+        servicio = st.radio(etiqueta("Servicio"), pre.SERVICIOS_AREA, index=None, horizontal=True,
+                            key=k("servicio"))
+        p.servicios = [servicio] if servicio else []
+        if servicio == pre.SERVICIO_LABORATORIO:
+            p.tipo_laboratorio = st.selectbox(etiqueta("Tipo de laboratorio"), pre.TIPOS_LABORATORIO, index=None,
+                                              key=k("tipo_laboratorio"), placeholder="Elige el tipo…") or ""
 
     with seccion("pre_condiciones", "Condiciones del área", obligatorio=False, nota="(en centímetros)"):
         for col, superficie in zip(st.columns(2, gap="large"), pre.SUPERFICIES):
@@ -153,12 +156,12 @@ def precargar(p: Preinstalacion) -> None:
     for tipo in p.tipos_toma:
         s[k(f"toma_chk_{tipo}")] = True
     for nombre, opciones, marcadas in (("traslado", pre.TRASLADOS, p.traslado),
-                                       ("servicio", pre.SERVICIOS_AREA, p.servicios),
                                        ("complemento", pre.COMPLEMENTOS, p.complementos_faltantes)):
         for i, opcion in enumerate(opciones):
             s[k(f"{nombre}_{i}")] = opcion in marcadas
     s[k("estibadores")] = p.estibadores
-    s[k("tipo_laboratorio")] = p.tipo_laboratorio
+    s[k("servicio")] = p.servicios[0] if p.servicios else None
+    s[k("tipo_laboratorio")] = p.tipo_laboratorio if p.tipo_laboratorio in pre.TIPOS_LABORATORIO else None
     s[k("temperatura")] = p.temperatura
     for superficie in pre.SUPERFICIES:
         for medida in pre.MEDIDAS:

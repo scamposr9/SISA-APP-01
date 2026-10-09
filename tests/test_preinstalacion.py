@@ -13,7 +13,7 @@ def reporte() -> Preinstalacion:
         numero="2026-P001", fecha=date(2026, 10, 6), cliente="Hospital", ubicacion="Lima",
         equipo="Analizador", marca="MarcaA", modelo="BX-100", punto_dedicado=False,
         tipos_toma=["Tipo 1", "Tipo 5"], traslado=["Estoca", "Estibadores"], estibadores=3,
-        accesos=["Puerta #2", "Rampa de 80 cm"], servicios=["Laboratorio"], tipo_laboratorio="Clínico",
+        accesos=["Puerta #2", "Rampa de 80 cm"], servicios=["Laboratorio"], tipo_laboratorio="Bioquímica",
         medidas={"Piso": {"Largo": 330.0, "Ancho": 220.0, "Altura": 600.0}},
         complementos_faltantes=["Lavaderos"], temperatura="22 °C",
         contactos=[Contacto("Liliana", "Arquitecta", "993 465 734"), Contacto("Carla", "Informática", "905 467 248")],
@@ -90,3 +90,12 @@ def test_observaciones_obligatorias_y_banco_de_organos(reporte):
     assert pre.SERVICIOS_AREA == ["Banco de Sangre", "Banco de Órganos", "Laboratorio"]
     reporte.observaciones, reporte.servicios = ["ok"], ["Banco de Órganos"]
     assert pre.validar(reporte) == [] and generar_pdf(reporte).startswith(b"%PDF")
+
+
+def test_un_solo_servicio_y_tipo_de_laboratorio(reporte):
+    reporte.tipo_laboratorio = ""
+    assert pre.validar(reporte) == ["Tipo de laboratorio"]
+    reporte.servicios = ["Banco de Sangre", "Laboratorio"]
+    assert pre.validar(reporte) == ["Tipo de área (elige un servicio)"]
+    reporte.servicios = ["Banco de Órganos"]
+    assert pre.validar(reporte) == []

@@ -31,7 +31,11 @@ TRASLADO_ESTIBADORES = "Estibadores"
 TRASLADO_NO_REQUIERE = "No requiere"
 TRASLADOS = ["Estoca", "Apilador", TRASLADO_ESTIBADORES, TRASLADO_NO_REQUIERE]
 SERVICIO_LABORATORIO = "Laboratorio"
-SERVICIOS_AREA = ["Banco de Sangre", "Banco de Órganos", SERVICIO_LABORATORIO]
+SERVICIOS_AREA = ["Banco de Sangre", "Banco de Órganos", SERVICIO_LABORATORIO]  # se elige uno
+TIPOS_LABORATORIO = [
+    "Tamizaje", "Inmunología", "Bioquímica", "Biología molecular", "Inmunohematología",
+    "Histocompatibilidad", "Inmunoquímica",
+]
 COMPLEMENTOS = ["Aire Acondicionado", "Lavaderos", "Punto de Agua", "Punto de Desagüe", "Puntos de Red", "Calefacción"]
 MEDIDAS = ["Largo", "Ancho", "Altura"]
 SUPERFICIES = ["Mesa de Trabajo", "Piso"]
@@ -82,7 +86,7 @@ class Preinstalacion:
     accesos: list[str] = field(default_factory=list)
 
     # Tipo de área
-    servicios: list[str] = field(default_factory=list)
+    servicios: list[str] = field(default_factory=list)  # un solo servicio (lista por compatibilidad)
     tipo_laboratorio: str = ""
 
     # Condiciones del área, en cm: {"Mesa de Trabajo": {"Largo": 330, ...}, "Piso": {...}}
@@ -161,8 +165,10 @@ def validar(p: Preinstalacion) -> list[str]:
         errores.append("Cantidad de estibadores (número entero)")
     if not p.accesos:
         errores.append("Accesos")
-    if not p.servicios:
-        errores.append("Tipo de área (servicio)")
+    if len(p.servicios) != 1:
+        errores.append("Tipo de área (elige un servicio)")
+    elif SERVICIO_LABORATORIO in p.servicios and not p.tipo_laboratorio:
+        errores.append("Tipo de laboratorio")
     if not p.contactos_usados:
         errores.append("Personal de contacto")
     for n, c in enumerate(p.contactos_usados, start=1):
