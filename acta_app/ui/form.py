@@ -98,17 +98,23 @@ def precargar_pruebas(p: balanzas.PruebasBalanza | None) -> None:
     st.session_state.pop(k("pruebas"), None)
 
 
+ALTO_FILA_PRUEBAS = 35  # px; también es el alto del encabezado que se bloquea en styles.py
+
+
 def _tabla_pruebas() -> balanzas.PruebasBalanza:
     st.caption(
         f"La primera fila son los pesos de referencia ({balanzas.FILA_REQUERIDO}). Escribe lo que muestra la "
         "balanza con cada peso y, después del ajuste, la nueva lectura."
     )
     base = st.session_state.setdefault(k("pruebas_base"), _datos_pruebas(None))
-    columnas = {balanzas.FILA_REQUERIDO: st.column_config.TextColumn(balanzas.FILA_REQUERIDO, disabled=True, width=138)}
-    columnas |= {str(peso): st.column_config.NumberColumn(str(peso), min_value=0.0, width=57)
+    columnas = {balanzas.FILA_REQUERIDO: st.column_config.TextColumn(balanzas.FILA_REQUERIDO, disabled=True, width=150)}
+    columnas |= {str(peso): st.column_config.NumberColumn(str(peso), min_value=0.0, width=56)
                  for peso in balanzas.PESOS_REQUERIDOS}
-    tabla = st.data_editor(base, key=k("pruebas"), hide_index=True, num_rows="fixed", column_config=columnas,
-                           width="stretch")
+    # Solo se escriben valores: sin ordenar, fijar, dar formato ni ocultar columnas (ver
+    # .st-key-tabla_pruebas en styles.py).
+    with st.container(key="tabla_pruebas"):
+        tabla = st.data_editor(base, key=k("pruebas"), hide_index=True, num_rows="fixed", column_config=columnas,
+                               width="stretch", row_height=ALTO_FILA_PRUEBAS, placeholder="")
 
     def fila(i: int) -> list[float | None]:
         return [None if pd.isna(tabla.iloc[i][str(peso)]) else float(tabla.iloc[i][str(peso)])

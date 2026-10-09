@@ -94,6 +94,15 @@ _CSS = f"""
   .sign-label {{ text-align: center; font-size: 13px; font-weight: 600; margin-top: 4px; }}
   [class*="st-key-borrar_"] button {{ color: {NAVY}; text-decoration: underline; font-size: 12px; }}
 
+  /* ---------- Tabla de pruebas de balanzas: solo escribir valores ---------- */
+  /* Sin barra de herramientas (ocultar columnas, descargar, buscar, pantalla completa). */
+  .st-key-tabla_pruebas [data-testid="stElementToolbar"] {{ display: none !important; }}
+  /* El encabezado no responde a clics: sin ordenar, fijar columna, formato ni ocultar. */
+  .st-key-tabla_pruebas [data-testid="stDataFrame"] {{ position: relative; }}
+  .st-key-tabla_pruebas [data-testid="stDataFrame"]::after {{
+    content: ""; position: absolute; top: 0; left: 0; right: 0; height: 36px; z-index: 10; cursor: default;
+  }}
+
   .app-version {{ text-align: center; font-size: 11px; color: #8A94A6; margin-top: 10px; }}
 
   /* ---------- Botones de acción ---------- */
